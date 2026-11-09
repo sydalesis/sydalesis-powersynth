@@ -425,8 +425,12 @@
         }
         const float w = menuRect.w, h = menuRect.h;
         float x = anchor.x, y = anchor.y + anchor.h + 3;
-        if (y + h > kH - 6) y = anchor.y - h - 3;
-        if (y < 60) y = std::max(60.f, kH - 6 - h);
+        if (y + h > kH - 6) {                         // no room below: open above the control
+            y = anchor.y - h - 3;
+            if (y < 60) y = std::max(60.f, kH - 6 - h);   // no room above either: keep it clear of the top bar
+        }
+        // (5.1.6 fix: the top-bar clamp used to run for menus opening below a top-bar control too,
+        //  which sent the HQ / quality menu to the bottom of the window)
         if (x + w > kW - 6) x = kW - 6 - w;
         if (x < 6) x = 6;
         menuRect.x = x; menuRect.y = y;
