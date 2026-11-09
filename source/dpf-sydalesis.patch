@@ -1,0 +1,318 @@
+diff --git a/distrho/src/DistrhoPluginCLAP.cpp b/distrho/src/DistrhoPluginCLAP.cpp
+index 5939092..bf693df 100644
+--- a/distrho/src/DistrhoPluginCLAP.cpp
++++ b/distrho/src/DistrhoPluginCLAP.cpp
+@@ -1570,6 +1570,15 @@ public:
+         char buffer[512], orig;
+         buffer[sizeof(buffer)-1] = '\xff';
+ 
++       #if DISTRHO_PLUGIN_WANT_STATE
++        // Driftfield patch: bracket a full state restore (lets the plugin detect older sessions)
++        struct DfRestoreScope {
++            PluginExporter& p;
++            DfRestoreScope(PluginExporter& x) : p(x) { p.setState("__dfRestoreBegin", "1"); }
++            ~DfRestoreScope() { p.setState("__dfRestoreEnd", "1"); }
++        } dfRestoreScope(fPlugin);
++       #endif
++
+         for (int32_t terminated = 0; terminated == 0;)
+         {
+             const int32_t read = stream->read(stream, buffer, sizeof(buffer)-1);
+@@ -2068,9 +2077,16 @@ private:
+    #endif
+ 
+    #if DISTRHO_PLUGIN_WANT_PARAMETER_VALUE_CHANGE_REQUEST
+-    bool requestParameterValueChange(uint32_t, float)
++    bool requestParameterValueChange(const uint32_t index, const float value)
+     {
+-        return true;
++        // Driftfield: report DSP-side parameter changes (MIDI learn) to the host during process
++        if (fOutputEvents == nullptr)
++            return false;
++        const clap_event_param_value_t clapEvent = {
++            { sizeof(clap_event_param_value_t), 0, 0, CLAP_EVENT_PARAM_VALUE, CLAP_EVENT_IS_LIVE },
++            index, nullptr, -1, -1, -1, -1, value
++        };
++        return fOutputEvents->try_push(fOutputEvents, &clapEvent.header);
+     }
+ 
+     static bool requestParameterValueChangeCallback(void* const ptr, const uint32_t index, const float value)
+diff --git a/distrho/src/DistrhoPluginVST3.cpp b/distrho/src/DistrhoPluginVST3.cpp
+index 7295c89..ab2d870 100644
+--- a/distrho/src/DistrhoPluginVST3.cpp
++++ b/distrho/src/DistrhoPluginVST3.cpp
+@@ -310,7 +310,8 @@ class PluginVst3
+             CC_Normal,
+             CC_ChannelPressure,
+             CC_Pitchbend,
+-            UI_MIDI // event from UI
++            UI_MIDI, // event from UI
++            NoteExpression // Driftfield patch: VST3 note expression, passed as a 12-byte private message
+         };
+         struct InputEventStorage {
+             Type type;
+@@ -320,9 +321,41 @@ class PluginVst3
+                 v3_event_data sysexData;
+                 v3_event_poly_pressure polyPressure;
+                 uint8_t midi[3];
++                uint8_t noteExp[12]; // 0xF4, type id, channel, pitch, 8-byte double (normalised value)
+             };
+         } eventListStorage[kMaxMidiEvents];
+ 
++        // Driftfield patch: note ids -> channel / pitch, kept across process calls
++        struct NoteIdSlot { int32_t id; int16_t channel, pitch; };
++        NoteIdSlot noteIds[256] = {};
++        uint8_t noteIdWrite = 0;
++        void rememberNoteId(int32_t id, int16_t ch, int16_t pitch) noexcept
++        {
++            if (id < 0) return;
++            for (NoteIdSlot& sl : noteIds) if (sl.id == id + 1) { sl.channel = ch; sl.pitch = pitch; return; }
++            NoteIdSlot& sl(noteIds[noteIdWrite++]);
++            sl.id = id + 1; sl.channel = ch; sl.pitch = pitch;
++        }
++        const NoteIdSlot* findNoteId(int32_t id) const noexcept
++        {
++            if (id < 0) return nullptr;
++            for (const NoteIdSlot& sl : noteIds) if (sl.id == id + 1) return &sl;
++            return nullptr;
++        }
++        bool appendNoteExpression(int32_t sampleOffset, uint32_t typeId, int16_t ch, int16_t pitch, double value) noexcept
++        {
++            InputEventStorage& es(eventListStorage[numUsed]);
++            es.type = NoteExpression;
++            es.noteExp[0] = 0xF4;
++            es.noteExp[1] = (uint8_t)std::min<uint32_t>(typeId, 255);
++            es.noteExp[2] = (uint8_t)(ch & 0xf);
++            es.noteExp[3] = (uint8_t)(pitch & 0x7f);
++            std::memcpy(es.noteExp + 4, &value, sizeof(double));
++            eventList[numUsed].sampleOffset = sampleOffset;
++            eventList[numUsed].storage = &es;
++            return placeSorted(sampleOffset);
++        }
++
+         struct InputEvent {
+             int32_t sampleOffset;
+             const InputEventStorage* storage;
+@@ -404,6 +437,10 @@ class PluginVst3
+                     midiEvent.data[1] = eventStorage.midi[1];
+                     midiEvent.data[2] = eventStorage.midi[2];
+                     break;
++                case NoteExpression:
++                    midiEvent.size = 12;
++                    midiEvent.dataExt = eventStorage.noteExp;
++                    break;
+                 default:
+                     midiEvent.size = 0;
+                     break;
+@@ -423,6 +460,10 @@ class PluginVst3
+             // case V3_EVENT_DATA:
+             case V3_EVENT_POLY_PRESSURE:
+                 break;
++            case V3_EVENT_NOTE_EXP_VALUE:
++                if (const NoteIdSlot* const sl = findNoteId(event.note_exp_value.note_id))
++                    return appendNoteExpression(event.sample_offset, event.note_exp_value.type_id, sl->channel, sl->pitch, event.note_exp_value.value);
++                return false;
+             default:
+                 return false;
+             }
+@@ -434,6 +475,17 @@ class PluginVst3
+             case V3_EVENT_NOTE_ON:
+                 eventStorage.type = NoteOn;
+                 eventStorage.noteOn = event.note_on;
++                rememberNoteId(event.note_on.note_id, event.note_on.channel, event.note_on.pitch);
++                if (event.note_on.tuning != 0.f)
++                {
++                    // note-on tuning (cents) follows the note-on as a tuning expression at the same offset
++                    eventList[numUsed].sampleOffset = event.sample_offset;
++                    eventList[numUsed].storage = &eventStorage;
++                    if (placeSorted(event.sample_offset))
++                        return true;
++                    return appendNoteExpression(event.sample_offset, 2, event.note_on.channel, event.note_on.pitch,
++                                                0.5 + (double)event.note_on.tuning / 100.0 / 240.0);
++                }
+                 break;
+             case V3_EVENT_NOTE_OFF:
+                 eventStorage.type = NoteOff;
+@@ -958,6 +1010,15 @@ public:
+         buffer[sizeof(buffer)-1] = '\xff';
+         v3_result res;
+ 
++       #if DISTRHO_PLUGIN_WANT_STATE
++        // Driftfield patch: bracket a full state restore (lets the plugin detect older sessions)
++        struct DfRestoreScope {
++            PluginExporter& p;
++            DfRestoreScope(PluginExporter& x) : p(x) { p.setState("__dfRestoreBegin", "1"); }
++            ~DfRestoreScope() { p.setState("__dfRestoreEnd", "1"); }
++        } dfRestoreScope(fPlugin);
++       #endif
++
+         for (int32_t terminated = 0, read; terminated == 0;)
+         {
+             read = -1;
+@@ -1350,6 +1411,10 @@ public:
+         fPlugin.deactivateIfNeeded();
+ 
+         // TODO process_mode can be V3_REALTIME, V3_PREFETCH, V3_OFFLINE
++       #if DISTRHO_PLUGIN_WANT_STATE
++        // Driftfield patch: pass the process mode (0 realtime, 1 prefetch, 2 offline) to the plugin
++        fPlugin.setState("__dfProcessMode", setup->process_mode == 0 ? "0" : (setup->process_mode == 2 ? "2" : "1"));
++       #endif
+ 
+         fPlugin.setSampleRate(setup->sample_rate, true);
+         fPlugin.setBufferSize(setup->max_block_size, true);
+@@ -3383,6 +3448,121 @@ struct dpf_ctrl2view_connection_point : v3_connection_point_cpp {
+ #endif // DISTRHO_PLUGIN_HAS_UI
+ 
+ #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
++// --------------------------------------------------------------------------------------------------------------------
++// Driftfield patch: dpf_note_expression (VST3 INoteExpressionController)
++// Advertises the six standard note-expression types; the values reach the plugin as 12-byte MIDI events
++// starting with 0xF4 (see InputEventList::appendNoteExpression).
++
++#include "travesty/align_push.h"
++struct v3_note_expression_value_description {
++    double default_value, minimum, maximum;
++    int32_t step_count;
++};
++struct v3_note_expression_type_info {
++    uint32_t type_id;
++    v3_str_128 title, short_title, units;
++    int32_t unit_id;
++    v3_note_expression_value_description value_desc;
++    v3_param_id associated_parameter_id;
++    int32_t flags;
++};
++struct v3_note_expression_controller {
++    int32_t (V3_API* get_note_expression_count)(void* self, int32_t bus, int16_t channel);
++    v3_result (V3_API* get_note_expression_info)(void* self, int32_t bus, int16_t channel, int32_t index, v3_note_expression_type_info* info);
++    v3_result (V3_API* get_note_expression_string_by_value)(void* self, int32_t bus, int16_t channel, uint32_t id, double value, v3_str_128 str);
++    v3_result (V3_API* get_note_expression_value_by_string)(void* self, int32_t bus, int16_t channel, uint32_t id, const int16_t* str, double* value);
++};
++#include "travesty/align_pop.h"
++static constexpr const v3_tuid v3_note_expression_controller_iid =
++    V3_ID(0xB7F8F859, 0x41234872, 0x91169581, 0x4F3721A3);
++struct v3_note_expression_controller_cpp : v3_funknown {
++    v3_note_expression_controller ne;
++};
++static_assert(sizeof(v3_note_expression_type_info) == 816, "NoteExpressionTypeInfo layout");
++
++struct dpf_note_expression : v3_note_expression_controller_cpp {
++    dpf_note_expression()
++    {
++        query_interface = query_interface_note_expression;
++        ref = dpf_static_ref;
++        unref = dpf_static_unref;
++        ne.get_note_expression_count = get_note_expression_count;
++        ne.get_note_expression_info = get_note_expression_info;
++        ne.get_note_expression_string_by_value = get_note_expression_string_by_value;
++        ne.get_note_expression_value_by_string = get_note_expression_value_by_string;
++    }
++    static v3_result V3_API query_interface_note_expression(void* const self, const v3_tuid iid, void** const iface)
++    {
++        if (v3_tuid_match(iid, v3_funknown_iid) || v3_tuid_match(iid, v3_note_expression_controller_iid))
++        {
++            *iface = self;
++            return V3_OK;
++        }
++        *iface = nullptr;
++        return V3_NO_INTERFACE;
++    }
++    struct Def { uint32_t id; const char* title; const char* shortTitle; const char* units; double def, mn, mx; int32_t flags; };
++    static const Def* defs()
++    {
++        // flags: 1 bipolar, 4 absolute
++        static const Def d[6] = {
++            { 0, "Volume", "Vol", "dB", 0.25, 0.0, 1.0, 4 },
++            { 1, "Pan", "Pan", "", 0.5, 0.0, 1.0, 1 | 4 },
++            { 2, "Tuning", "Tune", "semitones", 0.5, 0.0, 1.0, 1 | 4 },
++            { 3, "Vibrato", "Vib", "", 0.0, 0.0, 1.0, 4 },
++            { 4, "Expression", "Expr", "", 0.0, 0.0, 1.0, 4 },
++            { 5, "Brightness", "Bright", "", 0.5, 0.0, 1.0, 1 | 4 },
++        };
++        return d;
++    }
++    static void putStr(v3_str_128 dst, const char* src)
++    {
++        int i = 0;
++        for (; src[i] != '\0' && i < 127; ++i) dst[i] = (int16_t)(uint8_t)src[i];
++        dst[i] = 0;
++    }
++    static int32_t V3_API get_note_expression_count(void*, int32_t bus, int16_t)
++    {
++        return bus == 0 ? 6 : 0;
++    }
++    static v3_result V3_API get_note_expression_info(void*, int32_t bus, int16_t, int32_t index, v3_note_expression_type_info* const info)
++    {
++        if (bus != 0 || index < 0 || index >= 6 || info == nullptr) return V3_INVALID_ARG;
++        const Def& d(defs()[index]);
++        std::memset(info, 0, sizeof(*info));
++        info->type_id = d.id;
++        putStr(info->title, d.title);
++        putStr(info->short_title, d.shortTitle);
++        putStr(info->units, d.units);
++        info->unit_id = -1;
++        info->value_desc.default_value = d.def;
++        info->value_desc.minimum = d.mn;
++        info->value_desc.maximum = d.mx;
++        info->value_desc.step_count = 0;
++        info->associated_parameter_id = 0xffffffffu;
++        info->flags = d.flags;
++        return V3_OK;
++    }
++    static v3_result V3_API get_note_expression_string_by_value(void*, int32_t, int16_t, uint32_t id, double v, v3_str_128 str)
++    {
++        char buf[64];
++        switch (id)
++        {
++        case 0: std::snprintf(buf, sizeof(buf), "%.1f dB", v > 0.0 ? 20.0 * std::log10(4.0 * v) : -144.0); break;
++        case 1: std::snprintf(buf, sizeof(buf), "%.0f%%", (v - 0.5) * 200.0); break;
++        case 2: std::snprintf(buf, sizeof(buf), "%+.2f st", (v - 0.5) * 240.0); break;
++        default: std::snprintf(buf, sizeof(buf), "%.0f%%", v * 100.0); break;
++        }
++        putStr(str, buf);
++        return V3_OK;
++    }
++    static v3_result V3_API get_note_expression_value_by_string(void*, int32_t, int16_t, uint32_t, const int16_t*, double*)
++    {
++        return V3_NOT_IMPLEMENTED;
++    }
++    DISTRHO_PREVENT_HEAP_ALLOCATION
++};
++
+ // --------------------------------------------------------------------------------------------------------------------
+ // dpf_midi_mapping
+ 
+@@ -3547,6 +3727,16 @@ struct dpf_edit_controller : v3_edit_controller_cpp {
+             return V3_OK;
+         }
+ 
++       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
++        if (v3_tuid_match(iid, v3_note_expression_controller_iid))
++        {
++            static dpf_note_expression note_expression;
++            static dpf_note_expression* note_expression_ptr = &note_expression;
++            *iface = &note_expression_ptr;
++            return V3_OK;
++        }
++       #endif
++
+         if (v3_tuid_match(iid, v3_midi_mapping_iid))
+         {
+            #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+@@ -4228,6 +4418,16 @@ struct dpf_component : v3_component_cpp {
+             return V3_OK;
+         }
+ 
++       #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
++        if (v3_tuid_match(iid, v3_note_expression_controller_iid))
++        {
++            static dpf_note_expression note_expression;
++            static dpf_note_expression* note_expression_ptr = &note_expression;
++            *iface = &note_expression_ptr;
++            return V3_OK;
++        }
++       #endif
++
+         if (v3_tuid_match(iid, v3_midi_mapping_iid))
+         {
+            #if DISTRHO_PLUGIN_WANT_MIDI_INPUT

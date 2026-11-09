@@ -1,0 +1,993 @@
+Init
+Init Additive
+Init Analog
+Init Granular
+Init Physical
+Init Wavetable
+Bell Stretch Pad
+Cello into Throat
+Choir Vowel Slow Motion
+Choir into Bowl
+Cicada Stretch
+Fire Choir
+Fire Spectrum
+Frozen Bowl Halo
+Frozen Breath Choir
+Frozen Cello
+Frozen Choir Cloud
+Frozen Rain Chord
+Gamelan Smear
+Granular Smear Field
+Harmonium Glide
+Ice Creak Freeze
+Inharmonic Choir
+Metal Groan Shifted
+Monk Hum Stretched
+Ocean Swell Smear
+Ocean Through the Organ
+Overtone Drone Glass
+Rain Choir
+Scene Morph Spectra
+Scrub with Pressure
+Shifted Sympathy
+Shruti Spectral Bed
+Smeared Analog Pad
+Smeared Strings
+Spectral Choir Ah
+Spectral Shimmer Glass
+Spectral Tide
+Stone Voice
+Stream Glass
+Tanpura Ghost
+Throat Chant Keys
+Thunder Bloom
+Whisper Spectra
+Wind Speaks
+Bowl Ritual Motion
+Breathing Drone
+Four Seasons
+Gong Motion Bloom
+Note Swell Motion
+Pulse in Bars
+Reed Choir Scenes
+Scene Journey: Dawn to Night
+Scene Morph Strings
+Tide Machine
+Weather System
+XY Glass Field
+Bamboo Flute
+Bass Reed Pedal
+Breath Organ
+Breathy Bass Clarinet
+Cave Ocarina
+Choked Reed Growl
+Flute Choir Fifths
+Low Clarinet Drone
+Ney Drone
+Overblown Flute Harmonics
+Reed Organ Chant
+Reed Swarm
+Reed and Strings Sympathy
+Shakuhachi Breath
+Acid Below, Choir Above
+Analog Heaven with Bells
+Basalt Choir Under Ice
+Berlin Bass, Shimmer Top
+Bowed or Struck Bowl
+Cathedral Organ Breath
+Cello Below, Flute Above
+Crossfading Keyboard Horizon
+Desert Saws and Wind
+Drone Below, Bells Above
+Felt to Glass Keys
+Glass Horizon Shimmer Stack
+Gong Bath Over Earth Hum
+Gong Floor, Kalimba Top
+Monolith with Monks
+Moog Bass, OB Brass
+Morph Analog to Spectral
+Morph Bowl to Gong
+Morph Choir to Glass
+Morph Earth to Sky
+Morph Equal to Just
+Morph Rain to Fire
+Morph Void to Horizon
+Pluck Then Pad
+Pressure Bow to Tanpura
+Pressure Breath Into Sweep
+Pressure Choir Bloom
+Pressure Drone to Scream
+Pressure Into Light
+Pressure Strings to Brass
+Soft Pad, Hard Brass
+Solina Over Rain
+Structures and Cicadas
+Sub Under Strings
+Tanpura Drone, Sarangi Voice
+Tanpura and Sympathy
+Taurus Floor, Jupiter Sky
+Throat Singers in the Cave
+Void and Grain Rain
+Whisper to Choir
+22 Shruti Glissando Field
+Altar of Fifths
+Bayati Ney Wind
+Bhairav Dawn Tanpura
+Bhairavi Bowed Sarangi
+Bhupali Open Sky
+Bohlen-Pierce Clarinet Choir
+Canyon Pythagoras
+Carlos Alpha Drift
+Corbacho Pure Horizon
+Darbari Night Drone
+Desert Septimal Heat
+Dream House Sine Wall
+Dreamtime Just Reed
+Ghost Strings Septimal
+Half-Just Twilight
+Harmonic Ladder Pluck
+Harmonic Throne
+Harrison Pentatonic Bells
+Ice Cathedral Harmonics
+JI Sympathetic Field
+Just Major Dawn
+Kirnberger Glass Harmonica
+Magnificent Pure Void
+Marwa Sunset Swarm
+Meantone Organ Loft
+New Albion Harp
+Night Sky in Seven
+Nineteen Tone Organum
+Overtone Cathedral
+Partch Adapted Viola
+Partch Cloud Chamber Bowls
+Pelog Gong Ritual
+Prime Number Glass
+Pure Fifth Monolith
+Quarter-Tone Ghost Strings
+Rast Desert Oud
+Root Walker Drone
+Sacred Ground Pure
+Septimal Breath Choir
+Septimal Pentatonic Drift
+Shruti Box Breath
+Slendro Bronze Garden
+Slendro Shimmer Pad
+Stillness Overtones
+Structures in Just Light
+Tanpura Root Shift Field
+Todi Morning Strings
+Undertone Abyss
+Werckmeister Chamber
+White Keys Just Diatonic
+Yaman Evening Tanpura
+Acid Ladder Squelch
+Acid Square Bite
+Analog Electric Piano
+Analog Heartbeat
+Analog Sub Drone Bass
+Analog Thunder Rumble
+Blade Fanfare
+Bubbling Resonance Seq
+CS Blade Strings
+CS Brass Section
+CS Bright Lead
+CS Dream Swell
+Cathedral Sequencer
+Cross-Mod Growl Pad
+Crumar Viola Bank
+Dark Analog Velvet
+Desert Night Saws
+Detuned Organ Drone
+Diode Bite Lead
+Diode Detune Bass
+Diode Ostinato
+Diode Undercurrent
+Down Spiral Arp
+Eminent Organ Strings
+Fifth Stack Lead
+Glass Chime Poly
+Hollow Square Pad
+Juno Chord Arp
+Juno Pulse Choir
+Juno Silver Strings
+Jupiter Arp Cascade
+Jupiter Cross Pad
+Jupiter Silk
+Laser Zap Kit
+Logan Shimmer Strings
+MS Scream Pad
+MS-20 Growl
+MS-20 Howl Drone
+MS-20 Screamer
+Memory Pad
+Minimoog Flute
+Minimoog Solo
+Mirage Sequence
+Model D Round Low
+Model D Thump
+Modular Monolith
+Night Highway Seq
+Noise Breath Pad
+Noise Wind Sweep
+OB Brass Pad
+OB Eight Voice Wash
+OB Poly Brass
+Oberheim Brass Lead
+Oberheim Night Drone
+Oberheim Stab Bass
+Order Pluck Arp
+Organ Square Combo
+Oxygene Drip
+Phaedra Drift Seq
+Phased Seventies Pad
+Phaser Jet Wash
+Pluck Bass Seventy
+Poly Clav Pulse
+Prophet Brass Stab
+Prophet Poly-Mod Glass
+Prophet Sync Lead
+Prophet Velvet
+Pulse Width Cavern
+Pulse Width Sub
+Random Pulse Arp
+Resonant Ping Rain
+Resonant Tide Drone
+Ring Mod Bells
+Rubycon Pulse
+SEM Rubber
+SEM Warm Fifths
+Sample and Hold Bleeps
+Schulze Mirage Bed
+Slow Berlin Tide
+Soft Horn Swell
+Soft Pulse Whistle
+Solina Dusk Section
+Solina Prime
+Square Lead Seventy
+Stratosfear Run
+String Machine Choir
+Structures of Saw
+Supersaw Horizon
+Swing Analog Pulse
+Sync Bass Ripper
+Sync Sweep Pad
+Synth Harp Pluck
+Tangerine Arc Lead
+Tape Age Pad
+Taurus Pedal
+Theremin Ghost
+Timewind Arc
+Tri Sub Meditation
+Triplet Glass Arp
+Twin Sawtooth Sky
+Xpander Breathing Drone
+Xpander Hollow Bass
+Xpander Morph Pad
+A E I O U Choir Sweep
+Acid Wash Sweep
+Bandpass Searchlight
+Bow Position Sweep
+Breathing Sweep Loop
+Comb Choir Glide
+Comb Partials Sweep
+Comb Rain Sweep
+Comb Sweep Table
+Comb Tuned Resonator Sweep
+Diode Bubble Sweep
+Diode Dusk Sweep
+Downlifter Sink
+Drift Random Sweep
+Eight Bar Ladder Sweep
+Eight Second Noise Riser
+Ember Rise
+FM Index Breathing
+FM Index Sweep Pad
+Feedback Phaser Storm
+Flange-Phaser Spiral
+Formant Glide Scan
+Formant Wah Pad
+Four Bar OB Sweep
+Four Bar Riser
+Glacial Ladder Drift
+Glass Spectrum Lift
+Grain Size Bloom
+Granular Position Sweep
+Harmonic Searchlight
+Harmonic Walk Scan
+Haze Lift
+Highpass Resonance Lift
+Highpass Rising Air
+Jet Flange Saws
+Long Saw Uplifter
+Lowpass Flanger Dusk
+Lumen Unfold
+MS-20 Shriek Sweep
+MS-20 Twin Peak Sweep
+Morning Bright Sweep
+Negative Flange Wash
+Night Close
+Noise Downsweep
+Noise Jet Engine
+OB Singing Filter
+Open and Close
+Organ Drawbar Sweep
+Overtone Scanner
+PD Resonance Sweep
+PM Bell Sweep
+Partial Rise Scan
+Peak Hunter
+Phaser 24 Drift
+Phaser Stack 48
+Phaser Tri Sweep
+Phaser Tunnel Rise
+Plate Strike Position Sweep
+Pulse Sweep Strings
+Rain Stream Sweep
+Random Walk Spectrum Scan
+Resonant Rise Scream
+Resonant Saw Table Sweep
+Ring Sweep Shimmer
+SEM Vocal Resonance
+Saw Wall Ascent
+Sawtooth Ramp Sweep
+Short Whoosh Up
+Slow Sync Dawn
+Slow Tide Lowpass
+Slow Vowel Monks
+Spectral Bloom Swell
+Spectral Tilt Tide
+Square Gate Sweep
+Square Res Wobble
+Stepped Glass Sweep
+Sync Sweep Classic
+Sync Table Sweep
+Sync Tear Synced
+Talking Saw Wall
+Ten Second Dawn
+Throat Formant Drift
+Tilt Dark to Bright Scan
+Tube Breath Resonance Sweep
+Twenty Second Ascent
+Two Bar SEM Breath
+Vowel Table Journey
+Wavetable Comb Halo
+Whispered Vowels
+Whistling Ladder
+Xpander Notch Wander
+Xpander Phaser Res
+Altar Smoke
+Ancestor Hum
+Ancestral Low
+Barber Pole Drone
+Basalt Choir
+Basalt Organ
+Black Glass Monolith
+Black Glass River
+Bronze Gong Drone
+Cave Mantra
+Cavern Voice
+Cello Drone Choir
+Cicada Drone Mantra
+Coupled Bowls
+Coupled Strings Drone
+Deep Hollow Earth
+Desert Monolith
+Desert Solstice
+Didgeridoo Circle
+Dreamtime Ground
+Dusk Ritual
+Earth Hum
+Electric Om
+Empty Quarter
+Fifths Resonance Drone
+Fifths of Eternity
+Glass Horizon
+Gong Bath
+Grain Cathedral Drone
+Gravity Well
+Harmonium Pilgrimage
+Iron Harmonium
+Iron Tide
+Just Fifths Drone
+Kiva Breath
+Lithic Pulse
+Lunar Tones
+Magnetic Field Lines
+Magnetic North
+Magnificent Void Drone
+Moonless Mesa
+Nocturnal Emanation
+Nocturne Bands
+Ochre Horizon
+Octave Bloom Drone
+Origin Point
+Overtone Ladder
+Pilgrim Drone
+Planetary Hum
+Red Rock Resonance
+Sandstone Choir
+Septimal Seventh Drone
+Shadow Plateau
+Shifted Monastery
+Shruti Infinite
+Silent Bloom
+Silent Structures
+Silica Breath
+Sky Lantern Drone
+Smoke Spirals
+Spirit of the Plateau
+Subterranean Hymn
+Subterranean River
+Sympathetic Resonance
+Tanpura Box Drone
+Tanpura Field
+Throat of the World
+Tibetan Throat Drone
+Vespers of Stone
+Void Engine
+Volcanic Breath
+Wind Harp Drone
+Aeolian Harp
+Aeolian Ridge
+Altar Candles
+Antarctic Dream
+Atmospheric Pressure
+Aurora Engine
+Aurora Granules
+Bowl of Light
+Breathing Glacier
+Canyon Echoes
+Celestial Navigation
+Celestial Weather
+Cold Signal
+Dark Mesa Night
+Deep Field
+Distant Engine
+Dust Devils
+Dust Light
+Eden Before Dawn
+Ember Field
+Empty Cathedral Air
+Ether Tapestry
+Floating Stones
+Fragile Light
+Ghost Valley
+Glacier Calving
+Heat Haze Horizon
+Hollow Wind
+Incandescent Fog
+Industrial Cathedral
+Infinite Corridor
+Inner Orbit
+Inner Sky
+Labyrinth of Echoes
+Light Fields
+Light Sculpture
+Liminal Hours
+Lost Radio Signals
+Low Cloud Ceiling
+Lunar Seas
+Magnificent Void
+Memory of Water
+Mineral Light
+Minor Strings Shimmer
+Mirage Heat
+Monsoon Distance
+Moon Orbit
+Night Insects
+Northern Lights
+Origins Unknown
+Polar Night
+Rain Temple
+Sacred Geometry
+Salt Flats Wind
+Scraped Sky
+Spectral Dunes
+Spectral Weather
+Spirit Catcher Night
+Star Gate
+Thermal Rise
+Tidal Glass
+Valley of Ten Thousand Stones
+Vapor Trail
+Additive Strings
+Analog Brass Pad
+Analog Cathedral
+Analog Heaven
+Ash Cathedral
+Basalt Organ Pad
+Bitter Cold Pad
+Brass Section Dusk
+Brass Section Swell
+Chord Memory Pad
+Cyber Monk Pad
+Dark Matter Pad
+Deep Field Strings
+Desert Rose Pad
+Distant Shores Pad
+Dreamtime Pad
+Driftwood Pad
+Earth Song Pad
+Eight Voice Strings
+Endless Horizon
+Expressive Plains
+FM Glass Pad
+Fifths Under Ice
+Formant Choir Pad
+Frozen Lake
+Ghost Machine
+Glacial Organ Pad
+Glacier Pad
+Glass Cathedral
+Glass Choir Pad
+Golden Hour Pad
+Harmonic Cloud Pad
+Heaven Gate Pad
+Held-Note Halo
+Hope Pad
+Hypersaw Horizon
+Jet Stream Pad
+Juno Dream Pad
+Liquid Crystal Pad
+Long Shadows
+Lunar Tide Pad
+Matrix Velvet
+Midnight Analog Pad
+Midnight Bloom
+Monastery Morning
+Morph Pad A>B
+Nebula Strings
+Night Bus Pad
+OB Silk Strings
+OB Velvet Brass Pad
+Oberhaus Sunrise
+Oberheim Sunset
+Obsidian Pad
+Ocean Floor Pad
+Phase Cathedral Pad
+Polar Ensemble
+Polysynth Sunset
+Pressure Bloom Pad
+Pressure Garden
+Prism Ensemble
+Quiet Revolution
+Retro Sci-Fi Pad
+Rite of Passage Pad
+Rust Belt
+Saturn Ring Halo
+Saturn Rings
+Silver Screen Strings
+Sky Burial Pad
+Slow Breath Strings
+Soft Focus Pad
+Solina Dusk
+Spectral Morph Pad
+Spectral Strings
+Spectral Sunrise
+Stratosphere Pad
+Strings of Ether
+Sun Drenched
+Sunrise Over Ash
+Super Horizon
+Sync Choir Hybrid
+Sync Choir Pad
+Tundra Hymn
+Velour Choir Pad
+Velour Granular Pad
+Velvet PWM
+Velvet Vowel Pad
+Virus Hyper Lush
+Warm Analog Bank
+Warm Blanket
+Warm Tape Strings
+Warp Bend Pad
+Weightless
+Wind Organ Pad
+Wooden Choir Pad
+Xpander Silk
+Arcane Signal
+Aurora Grain Curtain
+Bit Monastery
+Bowed Glass Machine
+Bowed Plate Stutter
+Broken Radio
+Bronze Age Hum
+Bubble Physics
+Cathedral Bell Grains
+Cavern Water Drops
+Celestial Machinery
+Choir Particle Storm
+Chord Cloud Engine
+Cicada Grid
+Cicada Spectral Bloom
+Clockwork Fog
+Cloud Chamber
+Comb Wind Texture
+Cross Mod Lattice
+Digital Snowfall
+Dust Devil Steps
+Electro Static Field
+FM Noise Lattice
+Filter FM Breather
+Filter FM Hive
+Flanged Rain Choir
+Fractured Bells Texture
+Frozen Breath
+Frozen Breath Loop
+Gamelan Cloud Chamber
+Ghost Frequencies
+Granular Glacier
+Harmonic Glissando Mist
+Haunted Organ Smear
+Insect Choir
+Insect Swarm Synth
+Iron Lung
+Liquid Formant Flow
+Low Earth Orbit
+Metal Drift Sculpture
+Metallic Rain
+Microtonal Swarm
+Mirror Engine
+Monolith Pulse Field
+Neural Dream
+Overtone Weaver
+Particle Accelerator
+Particle Choir
+Particle Sea
+Phaser Cathedral Dust
+Prism Fracture
+Quantized Memory
+Quantum Foam
+Radio Ghost Archive
+Rain Harp
+Resonant Ghost Strings
+Reverse Choir Bloom
+Reverse Rain
+Ring Nebula
+Ritual Bone Rattle
+Rusted Comb Field
+Sand Glass Hourglass
+Shimmer Spectral Freeze
+Shimmering Grid
+Shortwave Dreams
+Silk Road Caravan
+Slow Mutation Garden
+Spectral Erosion
+Spectral Loom
+Spectral Rain Glass
+Spirit Catcher
+Stone Loom
+Sympathetic Swarm
+Sync Sweep Organism
+Tape Ghosts
+Tape Saturated Haze
+Thousand Flutes
+Tidal Grains
+Tidal Membrane
+Twilight Motor
+Undertow Machine
+Vowel Kaleidoscope
+Wavefold Embers
+Wavefold Nebula
+Wind Through Wires
+Wooden Resonance Box
+Abandoned Station
+Abyssal Plain
+Arctic Aurora
+Bamboo Forest Rite
+Black Lodge Hum
+Breath of the Mountain
+Breathing Earth
+Canyon at Dusk
+Cello in the Mist
+Choir of the Caves
+Cicada Phaser Field
+Cicada Temple Noon
+Data Center Hymn
+Didgeridoo Desert
+Distant Village Fire
+Dust Storm Approaching
+Electric Dusk Field
+Gamelan Dreams
+Glass Harmonica Forest
+Gongs in the Fog
+Harmonium Village
+Hearth and Ghosts
+Ice Field Groans
+Iron Bridge Wind
+Kalimba Rain Garden
+Lighthouse Keeper
+Lost Expedition
+Monks in the Valley
+Monsoon Temple
+Mountain Stream Hymn
+Night Insects Drone
+Oasis Mirage
+Old Wooden House
+Orbital Station
+Prayer Flags
+Railway Night
+Rain on the Tin Roof
+Rainforest Canopy
+Sacred Spring
+Seed Pod Rain Dance
+Shoreline Meditation
+Shortwave Pilgrim
+Shruti Ganges
+Singing Bowl Circle
+Smoke Signals
+Stone Circle Solstice
+Stream Through Strings
+Summer Meadow
+Sunken Bells
+Tanpura at Dawn
+Tape Memories
+Temple Bell Rain
+Thunder Drums Far Away
+Thunder Over Mesa
+Tidal Cathedral
+Underwater Chapel
+Wind Chime Garden
+Zither by the Lake
+Alien Chatter
+Bamboo Wind Chimes
+Bell Shimmer Tail
+Bit Rain Glitch
+Bowl Impact Bloom
+Breath Swell Detail
+Chime Sprinkle
+Comb Ping Detail
+Computer Memory Beeps
+Dark Matter Pulse
+Data Chirps
+Distant Wind Bed
+Electric Field Bed
+Fireplace Bed
+Forest Night Bed
+Formant Whisper Tones
+Ghost Resonator Tones
+Glass Ping Detail
+Granular Freeze Scatter
+Heartbeat Low
+Ice Crack Details
+Laser Zap
+Metal Resonance Hit
+Metallic Flange Swell
+Morse Code Signal
+Noise Sweep Up
+Ocean Bed
+Pipe Resonance Detail
+Rain Window Bed
+Reverse Grain Swell
+Reverse Swell Pad
+Room Tone Air
+Shortwave Tuning Detail
+Singing Wire Detail
+Spectral Riser
+Sub Boom Impact
+Sub Downlifter
+Tape Hiss Bed
+Tension Riser
+Thunder Roll One-Shot
+Tinnitus Sine
+UFO Hover
+Vinyl Dust Bed
+Water Drop Ping
+Wind Gust Whoosh
+Wood Creak Details
+Wood Knock Detail
+Aeolian Strings
+Bamboo Flute Tube
+Bar Through Comb
+Bell Into Plate
+Bowed Bar Cathedral
+Bowed Gong Bloom
+Bowed Plate Drone
+Bowed String Solo
+Bowed Tanpura
+Bowl Pair Bowed (Analysed)
+Bowl Under the Stream (Analysed)
+Breathing Tubes Choir
+Church Bell Tower
+Coupled Bar Chain
+Cymbal Wash (Analysed)
+Didgeridoo Tube
+Expressive Bowed Glass Lead
+FM Struck Bar
+Felt Hammer Strings
+Frame Drum
+Glass Bowl Pair Bowed
+Glass Harmonics (Analysed)
+Glass Rain Phaser
+Glockenspiel Steel
+Granular Excited Plate
+Hammered Dulcimer
+Handbell Choir
+Kalimba Box
+Mallet on Glass Bowl
+Marimba Hall
+Marimba Rosewood
+Membrane Bass Drum
+Membrane Rain Storm
+Noise Fed Bowl
+Nylon Pluck
+Pan Pipes Breath
+Physical Choir of Bowls
+Plate Bloom Bell
+Plucked Gut String
+Rain Through Strings
+Rain on Bells
+Rain on the Membrane
+Saw Driven Strings
+Scraped Gong Ritual
+Scraped Plate Body (Analysed)
+Scraped Wire Fence
+Sitar Sympathy
+Steam Pipe Organ
+Stream Through a Bowl
+String Into Membrane
+String Quartet Body
+Struck String Flanged
+Sympathetic Sitar
+Sympathetic Viola
+Talking Drum
+Tam-Tam Swell
+Tanpura Pair
+Tanpura Pluck Cycle
+Tanpura Sympathy Field
+Tension Koto
+Thunder Sheet
+Triple Glass Resonance
+Udu Clay Drum
+Vibraphone Motor
+Voice Into Strings
+Waveguide Bass Pluck
+Waveguide Cello
+Waveguide Flute
+Wind Through the Gong
+Wine Glass Rubbed
+Angel Hair
+Angelic Grains
+Breath Choir Pad
+Breathing Choir
+Breathing Vocal Pad
+Cathedral Choir
+Children of the Sky
+Choir of Ash
+Formant Lead Voice
+Formant Talker
+Ice Monastery
+Just Choir Aah
+Low Chant
+Monastery Voices
+Monk Ensemble
+Monks Below
+Overtone Duet
+Overtone Singer
+Overtone Singer JI
+Ritual Chant
+Throat Singers
+Tibetan Bass Choir
+Vocoder Ghosts
+Vowel Choir AEIOU
+Vowel Shaping Choir
+Whisper Choir
+Whisper Field
+Bell Tree Shimmer (Analysed)
+Bowed Metal
+Bowl Arpeggio
+Bowl Strike Shimmer
+Bronze Gong
+Celesta Dream
+Comb Resonator Bells
+Coupled Bell Garden
+Coupled Plates
+FM Temple Bell
+Gamelan Bell Tree
+Gamelan Keys
+Glass Marimba
+Glass Rods
+Gong Swell (Analysed)
+Hammered Strings
+Iron Bells
+Marimba Night
+Monastery Chimes
+Plucked Sitar Air
+Rain Bells
+Resonant Tubes
+Resonated Pad
+Scraped Gong
+Shifted Bells
+Singing Bowl (Analysed)
+Singing Bowl Choir
+Stone Garden
+Sympathetic Harp
+Sympathetic Zither
+Tanpura Flange Pluck
+Tanpura Pluck
+Temple Bell Cluster
+Temple Bowl
+Wind Chime Body (Analysed)
+Additive Organ
+Cave Organ
+Drawbar Cathedral
+Drawbar Fifths
+Electric Piano Dusk
+FM Rhodes Dusk
+Glass Keys
+Harmonium Haze
+Ice Celesta
+Meantone Harpsichord
+Reed Harmonium Air
+Reed Organ Flange
+Rhodes in the Rain
+Sync Clav
+Well-Tuned Piano Hall
+Acid Dune
+Drone Bass
+Drone Bass Flanged
+FM Pluck Bass
+Granite Drone Bass
+Growl Formant Bass
+Just Sub Bass
+Low Earth Bass
+Moog Sweep Bass
+OB Bass Throb
+Pressure Sub
+Ring Mod Bass
+SEM Bass
+Sub Weight Bass
+Submerged
+Sync Growl
+Sync Sub Bass
+Tube Bass
+Xpander Notch Bass
+Analog Cry
+Bhairav Raga Lead
+Bowed Lead
+Desert Flute
+Desert Sitar Lead
+Desert Throat Lead
+Expressive Cello Lead
+FM Whistle
+Glide Sync Lead
+Midnight Sun Lead
+OB Lead
+Phaser Glide Lead
+Ribbon Voice
+Shakuhachi Lead
+Shakuhachi Wind
+Supersaw Lead
+Sync Scream
+Virus Sync Lead
+Vowel Pressure Lead
+Whistling Wire
+Analog Arp Classic
+Arp Crystal Rain
+Arp Dreamtime
+Berlin Ostinato
+Berlin Pulse
+CV Sequenced Drone
+Comb Pluck Harp
+Dark Berlin Bass Seq
+Empetus Seq
+Empty City Seq
+Glass Arp
+Glass Sequence Flanger
+Granular Pluck
+Just Kalimba
+Kalimba Generator
+Midnight Sequencer
+Phaser Pulse Sequence
+Plucked Kalimba
+Pulse Circuit
+Pulse Motion
+Ritual Arp Drums
+Seq Glass Harmonics
+Steel Drum Pluck
+Stone Steps Seq
+Swing Steps
+Tangerine Cascade
+Tape Pluck
+Tribal Pulse Seq

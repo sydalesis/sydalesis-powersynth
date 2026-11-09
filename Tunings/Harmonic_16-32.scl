@@ -1,0 +1,17 @@
+! Harmonic_16-32.scl
+!
+Harmonic 16-32: harmonics 16 to 31 folded into one octave
+ 12
+!
+ 17/16
+ 9/8
+ 19/16
+ 5/4
+ 21/16
+ 11/8
+ 3/2
+ 13/8
+ 27/16
+ 7/4
+ 15/8
+ 2/1

@@ -1,0 +1,110 @@
+# Builds Sydalesis for macOS (universal) and Windows on every push and on demand.
+# The zips appear under the run's "Artifacts" (Actions tab > the run > Artifacts).
+# Pushing a tag like v5.1.6 also publishes both zips as a GitHub Release.
+name: build
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  macos:
+    runs-on: macos-14            # Apple Silicon runner; Xcode clang builds both slices
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build universal VST3 / CLAP / AU
+        run: |
+          set -o pipefail
+          ./build-macos.sh 2>&1 | tee build.log
+      - name: Report build errors
+        if: failure()
+        run: |
+          # compiler errors as a run annotation (readable without signing in)
+          msg=$( (grep -E -i 'error|undefined|fatal' build.log || tail -40 build.log) | head -40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::error title=macOS build failed::$msg"
+      - name: Check the binaries
+        run: |
+          for f in vst3 clap component; do
+            lipo -info source/bin/Sydalesis.$f/Contents/MacOS/Sydalesis
+            lipo source/bin/Sydalesis.$f/Contents/MacOS/Sydalesis -verify_arch arm64 x86_64
+            codesign -v source/bin/Sydalesis.$f
+          done
+      - name: Validate the Audio Unit (auval)
+        run: |
+          set -o pipefail
+          mkdir -p ~/Library/Audio/Plug-Ins/Components
+          cp -R source/bin/Sydalesis.component ~/Library/Audio/Plug-Ins/Components/
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          sleep 3
+          auval -v aumu Syd5 Sydl 2>&1 | tee auval.log
+      - name: Report auval errors
+        if: failure()
+        run: |
+          [ -f auval.log ] || exit 0
+          msg=$(tail -40 auval.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::error title=auval failed::$msg"
+      - name: Validate VST3 / AU (pluginval)
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          curl -sSL -o pluginval.zip https://github.com/Tracktion/pluginval/releases/latest/download/pluginval_macOS.zip
+          unzip -q pluginval.zip
+          ./pluginval.app/Contents/MacOS/pluginval --strictness-level 5 --skip-gui-tests --validate source/bin/Sydalesis.vst3 2>&1 | tee pluginval.log
+      - name: Report pluginval result
+        if: always()
+        run: |
+          [ -f pluginval.log ] || exit 0
+          msg=$(tail -25 pluginval.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::notice title=pluginval (VST3)::$msg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sydalesis-macOS
+          path: dist/Sydalesis-*-macOS.zip
+  windows:
+    runs-on: ubuntu-24.04        # cross-compiled with MinGW-w64, as every Windows release so far
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: sudo apt-get update -q && sudo apt-get install -y -q g++-mingw-w64-x86-64-posix zip
+      - name: Build Windows VST3 / CLAP
+        run: |
+          set -o pipefail
+          ./build-windows.sh 2>&1 | tee build.log
+      - name: Report build errors
+        if: failure()
+        run: |
+          msg=$( (grep -E -i 'error|undefined|fatal' build.log || tail -40 build.log) | head -40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::error title=Windows build failed::$msg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sydalesis-win64
+          path: dist/Sydalesis-*-win64.zip
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Engine tests
+        run: |
+          cd source
+          F="-O2 -ffast-math -fno-finite-math-only -std=gnu++17"
+          g++ $F -c EngineGeneric.cpp -o /tmp/eg.o
+          g++ $F -mavx2 -mfma -c EngineAVX2.cpp -o /tmp/ea.o
+          g++ $F -c EngineFactory.cpp -o /tmp/ef.o
+          g++ $F -c Platform.cpp -o /tmp/pl.o
+          for t in smoke v513 v511 v516; do
+            g++ -O2 -std=gnu++17 test/$t.cpp /tmp/eg.o /tmp/ea.o /tmp/ef.o /tmp/pl.o -lpthread -o /tmp/$t
+            (cd test && /tmp/$t | tail -2)
+          done
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [macos, windows, tests]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/**/*.zip

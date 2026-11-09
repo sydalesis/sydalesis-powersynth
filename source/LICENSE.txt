@@ -1,0 +1,97 @@
+SYDALESIS — FREE LICENCE
+Copyright (c) 2026 Sydalesis. All rights reserved except as granted below.
+
+Sydalesis (the VST3 and CLAP plug-ins, factory presets, wavetables, grain
+samples, tunings and source code in this package) is free software. You don't
+pay for it, and you don't need to register or ask permission to use it.
+
+1. USE
+   You may install and use Sydalesis on as many computers as you like, for
+   personal or commercial work.
+
+2. YOUR MUSIC IS YOURS
+   Anything you make with Sydalesis (songs, albums, soundtracks, sound effects,
+   streams, videos, games) belongs to you. No credit, royalty or fee is owed.
+   You may also use the factory presets, wavetables and samples inside your own
+   productions.
+
+3. SHARING
+   You may give away copies of the original, unmodified package for free.
+   You may not sell Sydalesis, rent it, charge for access to it, or bundle it
+   with anything that is sold.
+   You may not redistribute the factory wavetables, samples or presets on their
+   own as a sound library, sample pack or preset pack, free or paid.
+
+4. SOURCE CODE
+   The source code is included so you can study it, build it and change it for
+   your own use. If you share a modified version, it must be free, it must not
+   be called Sydalesis, and it must keep this licence and the third-party
+   notices below.
+
+5. NO WARRANTY
+   Sydalesis is provided "as is", without warranty of any kind. The author is
+   not liable for any damage, data loss, lost work or other problem arising
+   from its use. Use it at your own risk and save your work.
+
+6. ENDING
+   If you break these terms, your permission to use and share Sydalesis ends.
+
+-------------------------------------------------------------------------------
+THIRD-PARTY NOTICES
+
+Sydalesis is built with the following open-source components, each under its
+own permissive licence:
+
+DPF (DISTRHO Plugin Framework), including its VST3 and CLAP support
+Copyright (C) 2012-2025 Filipe Coelho <falktx@falktx.com>
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+
+MTS-ESP client library
+Copyright (C) 2021 by ODDSound Ltd. info@oddsound.com
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted.
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH
+REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND
+FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT,
+INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM
+LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+PERFORMANCE OF THIS SOFTWARE.
+
+NanoVG (drawing library) — Copyright (c) 2013 Mikko Mononen. zlib licence:
+provided 'as-is', without any express or implied warranty; the origin of this
+software must not be misrepresented; altered source versions must be plainly
+marked as such; this notice may not be removed or altered from any source
+distribution.
+
+Pugl (window library) — Copyright 2012-2023 David Robillard. ISC licence
+(same terms as DPF above).
+
+CLAP headers — Copyright (c) 2021 Alexandre Bique. MIT licence: permission is
+hereby granted, free of charge, to any person obtaining a copy of this software
+and associated documentation files, to deal in the software without
+restriction, subject to including this copyright and permission notice in all
+copies or substantial portions. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT
+WARRANTY OF ANY KIND.
+
+DejaVu Sans font (embedded in the editor) — Copyright (c) 2003 by Bitstream,
+Inc. (Bitstream Vera), with DejaVu changes in the public domain. Distributed
+under the Bitstream Vera Fonts licence: the font may be used and redistributed
+freely but not sold by itself. Bitstream Vera is a trademark of Bitstream, Inc.
+
+Interface font (5.1.5): Inter Medium, (c) 2016 The Inter Project Authors
+(https://github.com/rsms/inter), licensed under the SIL Open Font License 1.1
+(https://openfontlicense.org). A Latin subset is embedded in the plug-in; the font
+may be used, embedded and redistributed freely but not sold by itself.
+
+VST is a trademark of Steinberg Media Technologies GmbH. CLAP is an open
+standard by u-he and Bitwig. Sydalesis is not affiliated with either.

@@ -1,0 +1,38 @@
+SYDALESIS 5.1.6
+===============
+
+Fixes
+- MSEG: the playhead dot now follows curved segments. It used to run along the straight line
+  between the points even though the sound followed the curve.
+
+Main page
+- The ACTIVE MODULATION list is replaced by a MODULATOR panel:
+  - tabs for LFO 1-6, MSEG 1-4 and the two Drift generators. Pressing any ◎ handle on any page
+    also opens that source here.
+  - the selected modulator's own controls: LFO shape (drawable), wave, mode, sync / division,
+    rate, fade, phase, smooth; the full MSEG editor with mode, sync and TIME ×; Drift rate.
+  - its targets, each with a depth bar (drag sideways, double-click = 0), a BI / UNI polarity
+    switch and ✕ to remove it.
+  - drag a tab or the header ◎ onto any knob to add a target. MSEGs and Drift can now be
+    assigned from the main page.
+- Clicking an LFO in the bottom strip shows it in the panel; double-click opens the MOD page.
+- OCT, SEMI and FINE accept modulation. OCT moves in whole octaves, SEMI in semitones,
+  FINE in cents.
+- New PITCH knob in VOICE (±24 st, continuous, a modulation target for vibrato, sweeps, etc.).
+
+FX
+- TAPE: new WOW SPEED (0.05-4 Hz) and FLUTTER SPEED (2-30 Hz) knobs. Defaults are the old
+  fixed speeds (0.45 / 7.3 Hz).
+
+Mod matrix
+- New curve "Bipolar" (turns a 0..1 source such as an MSEG, envelope or macro into -1..+1).
+  The panel's BI / UNI switch uses it.
+- New destinations: A/B/C Octave, Semi, Fine.
+
+Compatibility
+- Every factory preset renders bit-identically to 5.1.5 (all 6,050 checked). Sessions and
+  user presets from 5.1.5 load unchanged; the new controls start at their neutral values.
+
+macOS
+- First macOS release: universal (Apple Silicon + Intel), VST3, CLAP and Audio Unit.
+  See README-macOS.txt.

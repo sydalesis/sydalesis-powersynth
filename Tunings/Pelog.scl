@@ -1,0 +1,12 @@
+! Pelog.scl
+!
+Pelog: Javanese 7-tone gamelan (one key per tone)
+ 7
+!
+ 120.0
+ 270.0
+ 540.0
+ 670.0
+ 785.0
+ 950.0
+ 1200.0
