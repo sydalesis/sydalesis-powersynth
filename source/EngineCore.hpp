@@ -80,7 +80,7 @@ struct Rng {
     inline float bi()  { return uni() * 2.f - 1.f; }
 };
 
-struct EnvCoefs { float a = 0.f, d = 0.f, r = 0.f, s = 1.f, k = 0.f, aRC = 0.f, rk = 0.f, ra = 0.f; bool classic = false; };
+struct EnvCoefs { float a = 0.f, d = 0.f, r = 0.f, s = 1.f, k = 0.f, aRC = 0.f, rk = 0.f, ra = 0.f, dk = 0.f, da = 0.f; bool classic = false; };
 // attack: a timed curve that takes exactly the attack time. k = 0 is an S-shape (gentle start, no
 // corner at the peak), k > 0 bends toward a punchy analog rise, k < 0 toward a slow swell.
 static inline float attackShape(float p, float k) {
@@ -96,8 +96,10 @@ static inline float releaseShape(float p, float rk) {
     if (rk > 0.f) { const float q = 1.f - p; return 1.f - std::pow(q, 1.f + 3.f * rk); }
     return std::pow(p, 1.f - 3.f * rk);
 }
-static inline void envCoefs(EnvCoefs& c, float a, float d, float s, float r, float fs, float k = 0.f, bool classic = false, float rk = 0.f) {
+static inline void envCoefs(EnvCoefs& c, float a, float d, float s, float r, float fs, float k = 0.f, bool classic = false, float rk = 0.f, float dk = 0.f) {
     c.rk = rk < -1.f ? -1.f : (rk > 1.f ? 1.f : rk);
+    c.dk = dk < -1.f ? -1.f : (dk > 1.f ? 1.f : dk);           // 6.0 decay curve
+    c.da = 1.f / ((d > 0.0005f ? d : 0.0005f) * fs);
     c.ra = 1.f / ((r > 0.0005f ? r : 0.0005f) * fs);
     c.a = 1.f / ((a > 0.0005f ? a : 0.0005f) * fs);
     c.aRC = 1.f - std::exp(-1.f / ((a > 0.0005f ? a : 0.0005f) * fs));
@@ -117,9 +119,14 @@ struct Env {
     inline float tick(const EnvCoefs& c) {
         switch (stage) {
         case Attack:
-            if (c.classic) { v += (1.25f - v) * c.aRC; if (v >= 1.f) { v = 1.f; stage = Decay; } break; }
-            p += c.a; if (p >= 1.f) { v = 1.f; stage = Decay; } else v = v0 + (1.f - v0) * attackShape(p, c.k); break;
-        case Decay:   v = c.s + (v - c.s) * c.d; if (std::fabs(v - c.s) < 1e-4f) { v = c.s; stage = Sustain; } break;
+            if (c.classic) { v += (1.25f - v) * c.aRC; if (v >= 1.f) { v = 1.f; stage = Decay; p = 0.f; v0 = 1.f; } break; }
+            p += c.a; if (p >= 1.f) { v = 1.f; stage = Decay; p = 0.f; v0 = 1.f; } else v = v0 + (1.f - v0) * attackShape(p, c.k); break;
+        case Decay:
+            if (c.dk == 0.f) { v = c.s + (v - c.s) * c.d; if (std::fabs(v - c.s) < 1e-4f) { v = c.s; stage = Sustain; } break; }
+            // 6.0 curved decay: the distance to the sustain level falls 60 dB over the decay time along
+            // releaseShape (curve 0 would be the exponential above)
+            p += c.da; if (p >= 1.f) { v = c.s; stage = Sustain; break; }
+            v = c.s + (v0 - c.s) * std::exp2(-9.9658f * releaseShape(p, c.dk)); break;
         case Sustain: v = c.s; break;
         case Release:
             if (c.rk == 0.f) { v *= c.r; if (v < 1e-4f) { v = 0.f; stage = Idle; } break; }
@@ -279,6 +286,8 @@ struct OscVoice {
     float dc2X = 0.f, dc2Y = 0.f;
     // 5.0 spectral: output phase / blurred magnitude per bin, overlap-add rings (pool memory)
     float* spPh = nullptr; float* spMagS = nullptr; float* spFq = nullptr; float* spOlaL = nullptr; float* spOlaR = nullptr;
+    int oscIdx = 0;
+    float* pmBuf = nullptr; int pmW = 0; float pmD = 0.f, pmAcc = 0.f; bool pmOn = false;   // 6.0: PM / FM by delay (Additive, Physical, Spectral)
     int   spN = 0, spH = 0, spBins = 0, spRp = 0, spToNext = 0;
     double spOff = 0.0;
     bool  spFresh = true, spFrozen = false;
@@ -320,6 +329,7 @@ struct Voice {
     float neTuneS = 0.f, neVibPh = 0.f;    // note-expression tuning (smoothed), vibrato phase
     OscVoice o[3];
     Env   fe, ae, me;
+    EnvCoefs ec[3]; bool envMod = false;     // 6.0: per-voice coefficients while an envelope stage is modulated
     LfoState lfo[kLfos];
     MsegState ms[kMsegs];
     DriftGen rndV;
@@ -372,7 +382,7 @@ public:
         for (int t = 0; t < kBaseSpectra; ++t) DRIFT_DSP_NS::baseSpectrum(t, spec[t]);
         for (int i = 0; i < kMaxPartials; ++i) lg2h[i] = std::log2((float)(i + 1));
         for (int i = 0; i < kMaxModes; ++i) { invSqrt[i] = 1.f / std::sqrt((float)(i + 1)); invPow06[i] = std::pow((float)(i + 1), -0.6f); }
-        for (int o = 0; o < 3; ++o) { for (int i = 0; i < kMaxPartials; ++i) custom[o][0][i] = custom[o][1][i] = 1.f / (float)(i + 1); customIdx[o].store(0); }
+        for (int o = 0; o < 6; ++o) { for (int i = 0; i < kMaxPartials; ++i) custom[o][0][i] = custom[o][1][i] = 1.f / (float)(i + 1); customIdx[o].store(0); }
         for (int l = 0; l < kLfos; ++l) { drift::lfoShapeDefault(lfoShape[l][0], l); std::memcpy(lfoShape[l][1], lfoShape[l][0], sizeof(lfoShape[l][0])); lfoShapeIdx[l].store(0); }
         for (int m = 0; m < kMsegs; ++m) { drift::msegDefault(mseg[m][0], m); mseg[m][1] = mseg[m][0]; msegIdx[m].store(0); }
         for (auto& sl : slots) { sl.pending.store(nullptr); sl.active = nullptr; for (auto& r : sl.retired) r.store(nullptr); }
@@ -386,6 +396,8 @@ public:
         spScr = new SpScratch[drift::kMaxPoolSlots];
         const size_t spPer = (size_t)kSpMaxBins * 3 + (size_t)kSpMaxN * 2;
         spPool = new float[(size_t)kMaxVoices * 3 * spPer];
+        pmPool = new float[(size_t)kMaxVoices * 3 * 3 * kPmBufN]();
+        for (int v = 0; v < kMaxVoices; ++v) for (int o = 0; o < 3; ++o) { voices[v].o[o].pmBuf = pmPool + ((size_t)v * 3 + o) * 3 * kPmBufN; voices[v].o[o].oscIdx = o; }
         std::memset(spPool, 0, sizeof(float) * (size_t)kMaxVoices * 3 * spPer);
         for (int v = 0; v < kMaxVoices; ++v)
             for (int o = 0; o < 3; ++o) {
@@ -421,7 +433,7 @@ public:
             drift::deleteSpec(sl.active);
             for (auto& r : sl.retired) drift::deleteSpec(r.exchange(nullptr));
         }
-        delete[] spScr; delete[] spPool;
+        delete[] spScr; delete[] spPool; delete[] pmPool;
     }
 
     const char* isaName() const override { return DRIFT_ISA_NAME; }
@@ -469,11 +481,11 @@ public:
         drift::deleteSample(sl.pending.exchange(s, std::memory_order_acq_rel));
     }
     void setCustomSpectrum(int osc, const float* a) override {
-        if (osc < 0 || osc >= 3) return;
+        if (osc < 0 || osc >= 6) return;   // 6.0: 3..5 = Custom 2 of osc 0..2
         const int w = 1 - customIdx[osc].load(std::memory_order_acquire);
         for (int i = 0; i < kMaxPartials; ++i) custom[osc][w][i] = clampf(a[i], 0.f, 1.f);
         customIdx[osc].store(w, std::memory_order_release);
-        for (auto& v : voices) v.o[osc].aHave = false;    // benign race: only forces a recompute
+        for (auto& v : voices) v.o[osc % 3].aHave = false;    // benign race: only forces a recompute
     }
     void setLfoShape(int l, const float* pts) override {
         if (l < 0 || l >= kLfos) return;
@@ -753,8 +765,10 @@ private:
     float spec[kBaseSpectra][kMaxPartials];
     float lg2h[kMaxPartials];
     float invSqrt[kMaxModes], invPow06[kMaxModes];
-    float custom[3][2][kMaxPartials];
-    std::atomic<int> customIdx[3];
+    static constexpr int kPmBufN = 8192;
+    float* pmPool = nullptr;
+    float custom[6][2][kMaxPartials];          // 6.0: 0-2 Custom, 3-5 Custom 2
+    std::atomic<int> customIdx[6];
     float lfoShape[kLfos][2][drift::kLfoShapePoints];
     std::atomic<int> lfoShapeIdx[kLfos];
     MsegData mseg[kMsegs][2];
@@ -1205,6 +1219,7 @@ private:
             const int mode = iparam(lfoP(i, lfMode), 0, 3);
             if (mode >= 2 || fresh) {
                 l.phase = mode >= 2 ? p[lfoP(i, lfPhase)] : rng.uni();
+                if (mode >= 2 && p[pLRndPh1 + i] > 0.f) { l.phase += p[pLRndPh1 + i] * rng.uni(); l.phase -= std::floor(l.phase); }   // 6.0
                 l.sh = rng.bi(); l.shPrev = rng.bi();
                 l.rateMul = mode == 1 ? 0.85f + 0.3f * rng.uni() : 1.f;
                 l.done = false;
@@ -1217,14 +1232,37 @@ private:
             s.seg = 1; s.t = 0.f; s.start = fresh ? d.l[0] : s.v; s.v = s.start; s.time = 0.f; s.u = 0.f; s.done = false; s.hold = false;
         }
         v.fromGen = genCtx;
+        // 6.0: start phase offsets (A/B/C Phase destinations) from what is known at note-on
+        float phMod[3] = { 0.f, 0.f, 0.f };
+        {
+            bool any = false;
+            for (int s = 0; s < kModSlots && !any; ++s) { const int d = iparam(modDstParam(s), 0, kModDstCount - 1); any = d >= mdAPhase && d <= mdCPhase && p[modAmtParam(s)] != 0.f; }
+            if (any) {
+                float src[kModSrcCount];
+                globalSources(src);
+                for (int i = 0; i < kLfos; ++i) if (iparam(lfoP(i, lfMode), 0, 3) != 0) src[msLfo1 + i] = lfoValue(iparam(lfoP(i, lfWave), 0, kLfoWaves - 1), v.lfo[i], lfoShape[i][lfoShapeIdx[i].load(std::memory_order_relaxed)]);
+                src[msVelocity] = vel; src[msKey] = (v.target - 60.f) / 48.f; src[msNoteRnd] = v.rnd; src[msAlternate] = v.alt;
+                src[msRndVoice] = fresh ? 0.f : v.rndV.v; src[msBend] = v.bendS + chans[0].bend; src[msSlide] = v.slideS;
+                float md[kModDstCount];
+                evalMatrix(src, md);
+                for (int o = 0; o < 3; ++o) phMod[o] = md[mdAPhase + o];
+            }
+        }
+        auto startPhase = [&](int o) {
+            float ph = op(o, ofPhase) + phMod[o];
+            const float r = p[osc2P(o, o2PhaseRnd)];
+            if (r > 0.f) ph += r * rng.uni();
+            return ph - std::floor(ph);
+        };
         if (fresh) {
             v.rndV.ph = 1.f; v.rndV.to = rng.bi(); v.rndV.v = v.rndV.to;
             for (int o = 0; o < 3; ++o) {
                 OscVoice& ov = v.o[o];
                 const bool retrig = op(o, ofRetrig) >= 0.5f;
-                const float ph0 = op(o, ofPhase);
+                const bool plain = phMod[o] == 0.f && p[osc2P(o, o2PhaseRnd)] == 0.f;
+                const float ph0 = plain ? op(o, ofPhase) : startPhase(o);
                 for (int j = 0; j < kMaxUnison; ++j) {
-                    ov.ph[j] = retrig ? ph0 : rng.uni(); ov.sph[j] = ov.ph[j]; ov.y1[j] = 0.f;
+                    ov.ph[j] = retrig ? (plain || j == 0 ? ph0 : startPhase(o)) : rng.uni(); ov.sph[j] = ov.ph[j]; ov.y1[j] = 0.f;
                     ov.drCur[j] = rng.bi() * 0.5f; ov.drTgt[j] = rng.bi();
                     ov.drTimer[j] = (int)((0.4f + 2.1f * rng.uni()) * fs);
                     ov.slop[j] = rng.bi();
@@ -1261,7 +1299,10 @@ private:
         }
         for (int o = 0; o < 3; ++o) {
             v.o[o].strikeEnv = vel; v.o[o].impulse = vel;
-            if (!fresh && op(o, ofRetrig) >= 0.5f) for (int j = 0; j < kMaxUnison; ++j) { v.o[o].ph[j] = op(o, ofPhase); v.o[o].sph[j] = v.o[o].ph[j]; }
+            if (!fresh && op(o, ofRetrig) >= 0.5f) {
+                const bool plain = phMod[o] == 0.f && p[osc2P(o, o2PhaseRnd)] == 0.f;
+                for (int j = 0; j < kMaxUnison; ++j) { v.o[o].ph[j] = plain ? op(o, ofPhase) : startPhase(o); v.o[o].sph[j] = v.o[o].ph[j]; }
+            }
         }
         v.ae.gateOn(); v.fe.gateOn(); v.me.gateOn();
     }
@@ -1374,6 +1415,23 @@ private:
         evalMatrix(src, md);
         for (int i = 0; i < kLfos; ++i) v.lfoRateMod[i] = md[mdLfo1Rate + i];
         v.msegRateMod[0] = md[mdMseg1Rate]; v.msegRateMod[1] = md[mdMseg2Rate]; v.msegRateMod[2] = md[mdMseg3Rate]; v.msegRateMod[3] = md[mdMseg4Rate];
+        // 6.0: envelope stages. Times scale exponentially (amount 1 = x16), sustain adds.
+        {
+            bool any = false;
+            for (int d = mdFEnvA; d <= mdMEnvR; ++d) if (md[d] != 0.f) { any = true; break; }
+            v.envMod = any;
+            if (any) {
+                static const uint32_t base[3] = { pFEnvA, pAEnvA, pMEnvA }, ac[3] = { pFEnvCurve, pAEnvCurve, pMEnvCurve },
+                                      rc[3] = { pFRelCurve, pARelCurve, pMRelCurve }, dc[3] = { pFDecCurve, pADecCurve, pMDecCurve };
+                const bool classic = envClassic.load(std::memory_order_relaxed);
+                for (int e = 0; e < 3; ++e) {
+                    const float* m4 = md + envDst(e, 0);
+                    auto tm = [&](uint32_t pi, float m) { return clampf(p[pi] * fastExp2(clampf(m, -1.f, 1.f) * 4.f), 0.001f, 60.f); };
+                    envCoefs(v.ec[e], tm(base[e], m4[0]), tm(base[e] + 1, m4[1]), clampf(p[base[e] + 2] + m4[2], 0.f, 1.f), tm(base[e] + 3, m4[3]),
+                             fs, p[ac[e]], classic, p[rc[e]], p[dc[e]]);
+                }
+            }
+        }
 
         // tuning follows live changes of root / scale / MTS master; held notes glide to the new pitch
         { const float tt = tunedPitch(v.note, v.ch); if (tt != v.target) { v.target = tt; v.retuning = true; } }
@@ -1428,9 +1486,9 @@ private:
             const float t1 = md[mb + 3] + timbreAll, t2 = md[mb + 4], t3 = md[mb + 5], t4 = md[mb + 6];
             for (int k = 0; k < kTimbreX; ++k) tx[k] = md[modDstXBase(o) + k];   // 5.1.7: Timbre 5..10, read by the engine updates
             ov.fmSrc = oiparam(o, ofFmSrc, 0, 5);
-            ov.fmMode = oiparam(o, ofFmMode, 0, 3);
+            ov.fmMode = oiparam(o, ofFmMode, 0, 5);
             ov.fmAmt = clampf(op(o, ofFmAmt) + md[mb + 7], 0.f, 1.f);
-            if (ov.fmSrc == 1 + o && ov.fmMode <= 1) ov.fmSrc = 0;    // self-FM is not offered
+            if (ov.fmSrc == 1 + o && fmIsPitch(ov.fmMode)) ov.fmSrc = 0;    // self-FM is not offered
             ov.syncSrc = oiparam(o, ofSyncSrc, 0, 3);
             if (ov.syncSrc == 1 + o) ov.syncSrc = 0;
             ov.hz = semisToHz(semis);
@@ -1500,7 +1558,7 @@ private:
                     case 8: case 9: hf = 1.f + 4.f * ov.warpAmt; break;
                     default: break;
                     }
-                    if (ov.fmSrc && ov.fmMode <= 1) hf *= 1.f + 6.f * ov.fmAmt * ov.fmAmt;
+                    if (ov.fmSrc && fmIsPitch(ov.fmMode)) hf *= 1.f + 6.f * fmHard(ov.fmMode) * ov.fmAmt * ov.fmAmt;
                     ov.mip = wtMipFor(mx * 1.02f * hf);
                     v.telT[o][0] = ov.pos; v.telT[o][1] = ov.warpAmt; v.telT[o][2] = uniW; v.telT[o][3] = ov.pos;
                 } else {
@@ -1575,9 +1633,13 @@ private:
         const float f0 = semisToHz(semis);
         const int n = std::min(oiparam(o, ofAdPartials, 1, kMaxPartials), partialCap());
         const int s1 = oiparam(o, ofAdSpec1, 0, kSpectra - 1), s2 = oiparam(o, ofAdSpec2, 0, kSpectra - 1);
-        const int ci = customIdx[o].load(std::memory_order_acquire);
-        const float* A = s1 == kSpecCustom ? custom[o][ci] : spec[s1];
-        const float* B = s2 == kSpecCustom ? custom[o][ci] : spec[s2];
+        auto specOf = [&](int s) -> const float* {
+            if (s == kSpecCustom) return custom[o][customIdx[o].load(std::memory_order_acquire)];
+            if (s == kSpecCustom2) return custom[o + 3][customIdx[o + 3].load(std::memory_order_acquire)];
+            return spec[s];
+        };
+        const float* A = specOf(s1);
+        const float* B = specOf(s2);
         const float morph = clampf(op(o, ofAdMorph) + t1, 0.f, 1.f);
         const float tilt = clampf(op(o, ofAdTilt) + t3, -1.f, 1.f) * 1.5f;
         const float oe = clampf(op(o, ofAdOddEven) + tx[1], -1.f, 1.f);
@@ -2013,6 +2075,12 @@ private:
             --ov.spToNext;
             M[s] = 0.5f * (L[s] + R[s]);
         }
+        if (p[pLevelComp] >= 0.5f) {
+            // 6.0: resynthesis runs ~4-9 dB under its source; +7 dB plus the source file's own level
+            const float g = 2.24f * clampf(0.13f / std::max(A->rmsIn, 1e-4f), 0.25f, 8.f);
+            for (int s = 0; s < n; ++s) { L[s] *= g; R[s] *= g; M[s] *= g; }
+        }
+        pmDelay(ov, fm, L, R, M, n);
         postFm(ov, fm, L, R, M, n);
     }
 
@@ -2031,6 +2099,20 @@ private:
         ov.grMax = grainCap();
         const float overlap = dens * size;
         ov.grGain = 0.9f / std::sqrt(overlap > 1.f ? overlap : 1.f);
+        if (p[pLevelComp] >= 0.5f) {
+            // 6.0 level compensation, fitted to measurements: about +5.5 dB overall, sparse clouds (overlap < 1)
+            // lifted toward the level of a dense one (at most +9 dB, so single grains do not turn into peaks),
+            // very dense clouds (where grains cancel) a little, the window shape's own loudness evened out,
+            // and quiet / loud samples brought to a common RMS
+            float c = 1.9f;
+            if (overlap < 1.f) c *= std::min(2.8f, 1.f / std::sqrt(std::max(overlap, 0.01f)));
+            else if (overlap > 20.f) c *= std::min(1.8f, std::pow(overlap / 20.f, 0.35f));
+            const float sh = clampf(op(o, ofGrShape), 0.f, 1.f);
+            c *= sh < 0.5f ? dbToGain(4.2f * (0.5f - sh)) : dbToGain(-7.8f * (sh - 0.5f));
+            const SampleBuf* lsb = sslots[o].active;
+            if (ov.grSource != 0 && lsb && lsb->len > 0) c *= clampf(0.13f / std::max(lsb->rms, 1e-4f), 0.5f, 4.f);
+            ov.grGain *= c;
+        }
         ov.grScan += clampf(op(o, ofGrScan) + tx[0], -1.f, 1.f) * 0.08f * (float)kBlock / fs;
         ov.grScan -= std::floor(ov.grScan);
         const SampleBuf* sb = sslots[o].active;
@@ -2058,6 +2140,52 @@ private:
         }
     }
 
+    static inline bool fmIsPitch(int m) { return m <= 1 || m >= 4; }          // PM, FM, PM Hard, FM Hard
+    static inline float fmHard(int m) { return m >= 4 ? 4.f : 1.f; }
+    // 6.0: PM / FM for engines that have no single phase to bend (Additive, Physical, Spectral): the output runs
+    // through a short modulated delay. Delay modulation is phase modulation of every partial at once (partial k
+    // gets k times the index), the same as bending a wavetable's read phase; FM integrates the modulator first.
+    void pmDelay(OscVoice& ov, const float* fm, float* L, float* R, float* M, int n) {
+        const int m = ov.fmMode;
+        if (!fm || ov.fmAmt <= 0.f || !fmIsPitch(m) || !(iparam(pFmV6, 0, 7) & (1 << ov.oscIdx))) { ov.pmOn = false; return; }
+        float* bL = ov.pmBuf; float* bR = bL + kPmBufN; float* bM = bR + kPmBufN;
+        if (!ov.pmOn) {
+            ov.pmOn = true; ov.pmD = 0.f; ov.pmAcc = 0.f; ov.pmW = 0;
+            std::memset(ov.pmBuf, 0, sizeof(float) * 3 * kPmBufN);
+        }
+        const bool isPm = m == 0 || m == 4;
+        const float period = fs / (ov.hz > 10.f ? ov.hz : 10.f);
+        const float a2 = ov.fmAmt * ov.fmAmt * fmHard(m);
+        const float k = a2 * 8.f;                                   // FM: relative frequency deviation, as on the wavetable
+        float D = isPm ? a2 * 2.f * period : k * period * (1.2f / 6.2832f);
+        const float dMax = 0.5f * (float)kPmBufN - 8.f;
+        if (D > dMax) D = dMax;
+        const float cs = 1.f - std::exp(-1.f / (0.01f * fs)), leak = std::exp(-31.4159f / fs);
+        const int mask = kPmBufN - 1;
+        int w = ov.pmW; float pd = ov.pmD, acc = ov.pmAcc;
+        for (int s = 0; s < n; ++s) {
+            bL[w] = L[s]; bR[w] = R[s]; bM[w] = M[s];
+            pd += (D - pd) * cs;
+            float d;
+            if (isPm) d = 2.f + pd * (1.f + fm[s]);
+            else { acc = acc * leak - k * fm[s]; d = 2.f + pd + acc; }
+            d = d < 2.f ? 2.f : (d > (float)kPmBufN - 4.f ? (float)kPmBufN - 4.f : d);
+            const float pos = (float)w - d;
+            const float fl = std::floor(pos);
+            const float t = pos - fl;
+            const int i0 = (int)fl;
+            const int im = (i0 - 1) & mask, ia = i0 & mask, ib = (i0 + 1) & mask, ic = (i0 + 2) & mask;
+            auto herm = [&](const float* b) {
+                const float y0 = b[im], y1 = b[ia], y2 = b[ib], y3 = b[ic];
+                const float c1 = 0.5f * (y2 - y0), c2 = y0 - 2.5f * y1 + 2.f * y2 - 0.5f * y3, c3 = 0.5f * (y3 - y0) + 1.5f * (y1 - y2);
+                return ((c3 * t + c2) * t + c1) * t + y1;
+            };
+            L[s] = herm(bL); R[s] = herm(bR); M[s] = herm(bM);
+            w = (w + 1) & mask;
+        }
+        ov.pmW = w; ov.pmD = pd; ov.pmAcc = acc;
+    }
+
     void postFm(OscVoice& ov, const float* fm, float* L, float* R, float* M, int n) {
         if (!fm || ov.fmAmt <= 0.f) return;
         if (ov.fmMode == 2) { for (int s = 0; s < n; ++s) { const float g = 1.f + ov.fmAmt * fm[s] * 1.5f; L[s] *= g; R[s] *= g; M[s] *= g; } }
@@ -2075,8 +2203,8 @@ private:
         const float* tb = wtTable(T, nf > 1 ? f0 + 1 : f0, ov.mip);
         for (int s = 0; s < n; ++s) { L[s] = 0.f; R[s] = 0.f; M[s] = 0.f; W[s] = -1.f; }
         const int warp = ov.warp; const float wa = ov.warpAmt;
-        const bool pm = fm && ov.fmMode == 0 && ov.fmAmt > 0.f, lfm = fm && ov.fmMode == 1 && ov.fmAmt > 0.f;
-        const float pmIdx = ov.fmAmt * ov.fmAmt * 2.f, fmIdx = ov.fmAmt * ov.fmAmt * 8.f;
+        const bool pm = fm && (ov.fmMode == 0 || ov.fmMode == 4) && ov.fmAmt > 0.f, lfm = fm && (ov.fmMode == 1 || ov.fmMode == 5) && ov.fmAmt > 0.f;
+        const float pmIdx = ov.fmAmt * ov.fmAmt * 2.f * fmHard(ov.fmMode), fmIdx = ov.fmAmt * ov.fmAmt * 8.f * fmHard(ov.fmMode);
         for (int j = 0; j < ov.nUni; ++j) {
             float ph = ov.ph[j];
             const float dt = ov.inc[j], gl = ov.gL[j], gr = ov.gR[j], gm = ov.gM[j];
@@ -2119,8 +2247,8 @@ private:
         const float pw = ov.pw;
         const bool ext = syncW != nullptr;
         const bool sync = ov.sync && !ext ? true : false;
-        const bool lfm = fm && ov.fmMode <= 1 && ov.fmAmt > 0.f;
-        const float fmIdx = ov.fmAmt * ov.fmAmt * 6.f;
+        const bool lfm = fm && fmIsPitch(ov.fmMode) && ov.fmAmt > 0.f;
+        const float fmIdx = ov.fmAmt * ov.fmAmt * 6.f * fmHard(ov.fmMode);
         const bool tri = wave == 3;
         // jump sizes at slave wrap / pw edge, per wave
         const float wrapJ = (wave == 0 || wave == 5) ? -2.f : (wave == 1 ? 2.f : 0.f);
@@ -2207,6 +2335,7 @@ private:
             for (int k = 0; k < 8; ++k) { l += accL[t][k]; r += accR[t][k]; m += accM[t][k]; }
             L[t] = l; R[t] = r; M[t] = m;
         }
+        pmDelay(ov, fm, L, R, M, n);
         postFm(ov, fm, L, R, M, n);
     }
 
@@ -2340,6 +2469,7 @@ private:
             }
         }
         if (!wg) renderModes(ov, excB, L, R, M, n);
+        pmDelay(ov, fm, L, R, M, n);
         postFm(ov, fm, L, R, M, n);
     }
     void renderModes(OscVoice& ov, const float* exc, float* L, float* R, float* M, int n) {
@@ -2438,8 +2568,8 @@ private:
         const bool sample = ov.grSource != 0 && sb;
         const WaveTable& T = slots[o].active ? *slots[o].active : *builtin->banks[oiparam(o, ofTable, 0, kWtBanks - 1)];
         const float* win = winTab[o];
-        const bool lfm = fm && ov.fmMode <= 1 && ov.fmAmt > 0.f;
-        const float fmIdx = ov.fmAmt * ov.fmAmt * 6.f;
+        const bool lfm = fm && fmIsPitch(ov.fmMode) && ov.fmAmt > 0.f;
+        const float fmIdx = ov.fmAmt * ov.fmAmt * 6.f * fmHard(ov.fmMode);
         // scheduling, sample-accurate within the block
         for (int s = 0; s < n; ++s) {
             ov.grTimer -= 1.f;
@@ -2502,8 +2632,9 @@ private:
         float (&bL)[3][kBlock] = sc.bL; float (&bR)[3][kBlock] = sc.bR; float (&bM)[3][kBlock] = sc.bM; float (&bW)[3][kBlock] = sc.bW;
         float* feB = sc.feB; float* aeB = sc.aeB; float* subB = sc.subB; float* noiseB = sc.noiseB; float* mixPk = sc.mixPk;
         updateControl(v, blk, n);
-        for (int s = 0; s < n; ++s) { feB[s] = v.fe.tick(ecF); aeB[s] = v.ae.tick(ecA); }
-        for (int s = 0; s < n; ++s) v.me.tick(ecM);
+        const EnvCoefs& cF = v.envMod ? v.ec[0] : ecF; const EnvCoefs& cA = v.envMod ? v.ec[1] : ecA; const EnvCoefs& cM = v.envMod ? v.ec[2] : ecM;
+        for (int s = 0; s < n; ++s) { feB[s] = v.fe.tick(cF); aeB[s] = v.ae.tick(cA); }
+        for (int s = 0; s < n; ++s) v.me.tick(cM);
 
         // sub + noise first: both can be FM sources
         const WaveTable& st = *builtin->banks[0];
@@ -2790,9 +2921,9 @@ private:
         updateMacros(n);
         updateResonator();
         const int nI = n * os;
-        envCoefs(ecF, p[pFEnvA], p[pFEnvD], p[pFEnvS], p[pFEnvR], fs, p[pFEnvCurve], envClassic.load(std::memory_order_relaxed), p[pFRelCurve]);
-        envCoefs(ecA, p[pAEnvA], p[pAEnvD], p[pAEnvS], p[pAEnvR], fs, p[pAEnvCurve], envClassic.load(std::memory_order_relaxed), p[pARelCurve]);
-        envCoefs(ecM, p[pMEnvA], p[pMEnvD], p[pMEnvS], p[pMEnvR], fs, p[pMEnvCurve], envClassic.load(std::memory_order_relaxed), p[pMRelCurve]);
+        envCoefs(ecF, p[pFEnvA], p[pFEnvD], p[pFEnvS], p[pFEnvR], fs, p[pFEnvCurve], envClassic.load(std::memory_order_relaxed), p[pFRelCurve], p[pFDecCurve]);
+        envCoefs(ecA, p[pAEnvA], p[pAEnvD], p[pAEnvS], p[pAEnvR], fs, p[pAEnvCurve], envClassic.load(std::memory_order_relaxed), p[pARelCurve], p[pADecCurve]);
+        envCoefs(ecM, p[pMEnvA], p[pMEnvD], p[pMEnvS], p[pMEnvR], fs, p[pMEnvCurve], envClassic.load(std::memory_order_relaxed), p[pMRelCurve], p[pMDecCurve]);
         prepareWindows();
         const int nb = (nI + kBlock - 1) / kBlock;
         const float t1 = std::log2(clampf(p[pF1Cutoff], 16.f, 20000.f)), t2 = std::log2(clampf(p[pF2Cutoff], 16.f, 20000.f));

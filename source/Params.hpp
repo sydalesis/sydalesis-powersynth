@@ -31,6 +31,7 @@ enum Osc2Field : uint32_t { o2Pressure, o2Noise, o2Nonlin,
     // 5.0 spectral oscillator (were hidden reserves in 4.2)
     o2SpPos, o2SpSpeed, o2SpFreeze, o2SpBlur, o2SpShift, o2SpStretch, o2SpTilt, o2SpFormant, o2SpSparse,
     o2SpCross, o2SpCrossMode, o2SpKeyed,
+    o2PhaseRnd,                                      // 6.0: random start phase (with RTG on)
     kOsc2Used, kOsc2Fields = 16 };
 
 static constexpr int kLfos = 6;
@@ -97,6 +98,10 @@ enum ParamId : uint32_t {
     pXy2Mode, pXy2Rate, pXy2Sync, pXy2Div, pXy2Size, pXy2Dir,
     pFRelCurve, pARelCurve, pMRelCurve,                                           // 5.1.3 release curves (were reserves)
     pTpWowRate, pTpFlutRate, pPitch,                                              // 5.1.6 tape speeds, layer pitch (were reserves)
+    pFDecCurve, pADecCurve, pMDecCurve,                                           // 6.0 decay curves (were reserves)
+    pLRndPh1, pLRndPhLast = pLRndPh1 + kLfos - 1,                                 // 6.0 LFO random start phase
+    pLevelComp,                                                                   // 6.0 Granular / Spectral level compensation
+    pFmV6,                                                                        // 6.0 bits 0-2: osc A-C use PM / FM on Add / Phys / Spec
     pRsv1,                              // hidden reserves: later versions add layer parameters here
     pRsvLast = 699,
     kLayerParams,                       // everything above is one layer's sound (layer 1 = these indices)
@@ -156,11 +161,12 @@ static const char* const kWarpNames[kWarpModes] = { "Off", "Bend +", "Bend -", "
 static const char* const kBlendNames[3] = { "Smooth", "Spectral", "Stepped" };
 static constexpr int kAnWaves = 6;
 static const char* const kAnWaveNames[kAnWaves] = { "Saw", "Pulse", "Saw + Pulse", "Triangle", "Sine", "Supersaw" };
-static constexpr int kSpectra = 16;
+static constexpr int kSpectra = 17;
 static const char* const kSpectrumNames[kSpectra] = { "Saw", "Square", "Triangle", "Organ", "Choir Ah", "Choir Oo",
                                                       "Bell", "Glass", "Hollow", "Strings", "Reed",
-                                                      "Throat", "Octaves", "Fifths", "Primes", "Custom" };
+                                                      "Throat", "Octaves", "Fifths", "Primes", "Custom", "Custom 2" };
 static constexpr int kSpecCustom = 15;
+static constexpr int kSpecCustom2 = 16;   // 6.0: a second drawable spectrum, so two drawings can morph
 static constexpr int kPmModels = 14;
 static const char* const kPmModelNames[kPmModels] = { "String", "Bar", "Bell", "Membrane", "Plate", "Glass Bowl", "Tube",
                                                       "Waveguide", "Tanpura", "Sympathetic", "Reed", "Flute", "Gong", "Analysed" };
@@ -175,7 +181,7 @@ static const char* const kRsOctNames[5] = { "Octave 1", "Octave 2", "Octave 3", 
 static constexpr int kScenes = 8;
 static const char* const kGrSourceNames[3] = { "Wavetable", "Sample Keyed", "Sample Fixed" };
 static const char* const kFmSrcNames[6] = { "Off", "Osc A", "Osc B", "Osc C", "Sub", "Noise" };
-static const char* const kFmModeNames[4] = { "PM", "FM", "AM", "Ring" };
+static const char* const kFmModeNames[6] = { "PM", "FM", "AM", "Ring", "PM Hard", "FM Hard" };   // 6.0: hard modes appended
 static const char* const kSyncSrcNames[4] = { "Off", "Osc A", "Osc B", "Osc C" };
 static const char* const kSubWaveNames[4] = { "Sine", "Triangle", "Saw", "Square" };
 static const char* const kRingNames[4] = { "A x B", "A x C", "B x C", "A x B x C" };
@@ -250,13 +256,20 @@ enum ModDest {
     mdAT5, mdAT6, mdAT7, mdAT8, mdAT9, mdAT10,                                        // 5.1.7: engine parameters
     mdBT5, mdBT6, mdBT7, mdBT8, mdBT9, mdBT10,                                        //        Timbre 1-4 do not reach
     mdCT5, mdCT6, mdCT7, mdCT8, mdCT9, mdCT10,                                        //        (see kTimbreXNames)
+    // 6.0: envelope stages (per voice; times: amount 1 = x16 / /16), oscillator start phase (read at note-on),
+    // and FX parameters beyond the mixes (global)
+    mdFEnvA, mdFEnvD, mdFEnvS, mdFEnvR, mdAEnvA, mdAEnvD, mdAEnvS, mdAEnvR, mdMEnvA, mdMEnvD, mdMEnvS, mdMEnvR,
+    mdAPhase, mdBPhase, mdCPhase,
+    mdFxPhRate, mdFxPhFb, mdFxChRate, mdFxChDepth, mdFxDlTime, mdFxDlFb, mdFxDlDamp, mdFxFsFb,
+    mdFxTpFlutter, mdFxTpTone, mdFxRsDecay, mdFxRsBright, mdFxSpSize, mdFxSpDecay, mdFxSpDamp, mdFxSxShift, mdFxSxTilt,
     kModDstCount };
+static inline int envDst(int env, int stage) { return mdFEnvA + env * 4 + stage; }   // env 0 filter 1 amp 2 mod; stage 0 A .. 3 R
 static constexpr int kTimbreX = 6;
 static inline int modDstXBase(int osc) { return mdAT5 + osc * kTimbreX; }
 static inline int modDstTuneBase(int osc) { return mdAOct + osc * 3; }   // + 0 octave, 1 semi, 2 fine
 static constexpr int kOscDstStride = 9;   // pitch level pan t1 t2 t3 t4 fm detune
 static inline int modDstOscBase(int osc) { return mdAPitch + osc * kOscDstStride; }
-static inline bool isGlobalDest(int d) { return (d >= mdFxPhaser && d <= mdFxDrive) || (d >= mdFxReso && d <= mdFxSpecBlur); }   // FX Resonator .. FX Spectral Blur
+static inline bool isGlobalDest(int d) { return (d >= mdFxPhaser && d <= mdFxDrive) || (d >= mdFxReso && d <= mdFxSpecBlur) || (d >= mdFxPhRate && d <= mdFxSxTilt); }   // FX Resonator .. FX Spectral Blur
 static const char* const kModDstNames[kModDstCount] = {
     "—",
     "F1 Cutoff", "F1 Reso", "F1 Drive", "F1 Shape", "F1 Morph", "F1 FM",
@@ -273,7 +286,13 @@ static const char* const kModDstNames[kModDstCount] = {
     "A Octave", "A Semi", "A Fine", "B Octave", "B Semi", "B Fine", "C Octave", "C Semi", "C Fine",
     "A Timbre 5", "A Timbre 6", "A Timbre 7", "A Timbre 8", "A Timbre 9", "A Timbre 10",
     "B Timbre 5", "B Timbre 6", "B Timbre 7", "B Timbre 8", "B Timbre 9", "B Timbre 10",
-    "C Timbre 5", "C Timbre 6", "C Timbre 7", "C Timbre 8", "C Timbre 9", "C Timbre 10" };
+    "C Timbre 5", "C Timbre 6", "C Timbre 7", "C Timbre 8", "C Timbre 9", "C Timbre 10",
+    "FEnv Attack", "FEnv Decay", "FEnv Sustain", "FEnv Release", "AEnv Attack", "AEnv Decay", "AEnv Sustain", "AEnv Release",
+    "MEnv Attack", "MEnv Decay", "MEnv Sustain", "MEnv Release",
+    "A Phase", "B Phase", "C Phase",
+    "FX Phaser Rate", "FX Phaser Fb", "FX Chorus Rate", "FX Chorus Depth", "FX Delay Time", "FX Delay Fb", "FX Delay Damp", "FX Shift Fb",
+    "FX Tape Flutter", "FX Tape Tone", "FX Reso Decay", "FX Reso Bright", "FX Space Size", "FX Space Decay", "FX Space Damp",
+    "FX Spectral Shift", "FX Spectral Tilt" };
 
 // What "Timbre 1..4" mean for each oscillator engine (shown in the UI)
 static const char* const kTimbreNames[kOscTypes][4] = {
@@ -347,7 +366,7 @@ private:
             add(N("Phase"), S("Phase"), "", 0, 1, 0, fNone);
             add(N("Retrigger"), S("Retrig"), "", 0, 1, 0, fInt | fBool);
             add(N("FM Source"), S("FmSrc"), "", 0, 5, 0, fInt, kFmSrcNames);
-            add(N("FM Mode"), S("FmMode"), "", 0, 3, 0, fInt, kFmModeNames);
+            add(N("FM Mode"), S("FmMode"), "", 0, 5, 0, fInt, kFmModeNames);
             add(N("FM Amount"), S("FmAmt"), "", 0, 1, 0, fNone);
             add(N("Sync Source"), S("SyncSrc"), "", 0, 3, 0, fInt, kSyncSrcNames);
             add(N("Table"), S("Table"), "", 0, 7, 0, fInt, kTableNames);
@@ -572,6 +591,7 @@ private:
             add(N("Spectral Cross"), S("SpCross"), "", 0, 1, 0.5f, fNone);
             add(N("Spectral Cross Mode"), S("SpCrossMode"), "", 0, 2, 0, fInt, kSpCrossNames);
             add(N("Spectral Keyed"), S("SpKeyed"), "", 0, 1, 1, fInt | fBool);
+            add(N("Phase Random"), S("PhaseRnd"), "", 0, 1, 0, fNone);                  // 6.0 (was a reserve)
             for (int k = kOsc2Used; k < (int)kOsc2Fields; ++k)
                 add(N(("Reserved " + std::to_string(k)).c_str()), S(("Rsv" + std::to_string(k)).c_str()), "", 0, 1, 0, fHidden);
         }
@@ -630,6 +650,18 @@ private:
         add("Tape Wow Speed", "tpWowRate", "Hz", 0.05f, 4.f, 0.45f, fLog);
         add("Tape Flutter Speed", "tpFlutRate", "Hz", 2.f, 30.f, 7.3f, fLog);
         add("Pitch", "pitch", "st", -24, 24, 0, fNone);
+        // 6.0 (were reserves). Decay curves: 0 = the exponential decay of every earlier version, < 0 holds the
+        // level longer (slow pads), > 0 drops faster then lingers. Same decay time either way.
+        add("Filter Env Decay Curve", "fDecCurve", "", -1, 1, 0, fNone);
+        add("Amp Env Decay Curve", "aDecCurve", "", -1, 1, 0, fNone);
+        add("Mod Env Decay Curve", "mDecCurve", "", -1, 1, 0, fNone);
+        for (int i = 0; i < kLfos; ++i)
+            add(keep("LFO " + std::to_string(i + 1) + " Random Phase"), keep("lfo" + std::to_string(i + 1) + "RndPh"), "", 0, 1, 0, fNone);
+        // 0 for sessions and presets made before 6.0 (they keep their levels); INIT and the 6.0 bank turn it on
+        add("Level Compensation", "levelComp", "", 0, 1, 0, fInt | fBool);
+        // 0 for everything made before 6.0, where PM / FM did nothing on Additive, Physical and Spectral (their
+        // dormant settings stay silent); the editor sets an oscillator's bit when its FM controls are touched
+        add("FM 6.0 Oscillators", "fmV6", "", 0, 7, 0, fInt | fHidden);
         for (int k = pRsv1; k <= (int)pRsvLast; ++k)
             add(keep("Reserved " + std::to_string(k - pRsv1 + 1)), keep("rsv" + std::to_string(k - pRsv1 + 1)), "", 0, 1, 0, fHidden);
         // layer setup
@@ -679,14 +711,15 @@ enum StateKey {
     skPerf,                         // 4.2: PERFORM page layout (XY pad assignments)
     skSrcA, skSrcB, skSrcC,         // 5.0: spectral source recording per osc
     skXsrcA, skXsrcB, skXsrcC,      // 5.0: spectral cross-synthesis recording per osc
+    skSp2A, skSp2B, skSp2C,         // 6.0: second custom additive spectrum per osc ("Custom 2")
     kLayerStates,                   // 4.1: layer 2 states follow, keys "b_" + key
     kStateCount = kLayerStates * 2 };
 static const char* const kStateKeys[kStateCount] = {
-    "wtA", "wtB", "wtC", "spA", "spB", "spC", "smA", "smB", "smC", "lfo1", "lfo2", "lfo3", "lfo4", "lfo5", "lfo6", "mseg1", "mseg2", "fxOrder", "macroNames", "scl", "kbm", "mseg3", "mseg4", "modesA", "modesB", "modesC", "scenes", "motion", "perf", "srcA", "srcB", "srcC", "xsrcA", "xsrcB", "xsrcC",
-    "b_wtA", "b_wtB", "b_wtC", "b_spA", "b_spB", "b_spC", "b_smA", "b_smB", "b_smC", "b_lfo1", "b_lfo2", "b_lfo3", "b_lfo4", "b_lfo5", "b_lfo6", "b_mseg1", "b_mseg2", "b_fxOrder", "b_macroNames", "b_scl", "b_kbm", "b_mseg3", "b_mseg4", "b_modesA", "b_modesB", "b_modesC", "b_scenes", "b_motion", "b_perf", "b_srcA", "b_srcB", "b_srcC", "b_xsrcA", "b_xsrcB", "b_xsrcC" };
+    "wtA", "wtB", "wtC", "spA", "spB", "spC", "smA", "smB", "smC", "lfo1", "lfo2", "lfo3", "lfo4", "lfo5", "lfo6", "mseg1", "mseg2", "fxOrder", "macroNames", "scl", "kbm", "mseg3", "mseg4", "modesA", "modesB", "modesC", "scenes", "motion", "perf", "srcA", "srcB", "srcC", "xsrcA", "xsrcB", "xsrcC", "sp2A", "sp2B", "sp2C",
+    "b_wtA", "b_wtB", "b_wtC", "b_spA", "b_spB", "b_spC", "b_smA", "b_smB", "b_smC", "b_lfo1", "b_lfo2", "b_lfo3", "b_lfo4", "b_lfo5", "b_lfo6", "b_mseg1", "b_mseg2", "b_fxOrder", "b_macroNames", "b_scl", "b_kbm", "b_mseg3", "b_mseg4", "b_modesA", "b_modesB", "b_modesC", "b_scenes", "b_motion", "b_perf", "b_srcA", "b_srcB", "b_srcC", "b_xsrcA", "b_xsrcB", "b_xsrcC", "b_sp2A", "b_sp2B", "b_sp2C" };
 static const char* const kStateLabels[kStateCount] = {
-    "Osc A Wavetable", "Osc B Wavetable", "Osc C Wavetable", "Osc A Custom Spectrum", "Osc B Custom Spectrum", "Osc C Custom Spectrum", "Osc A Grain Sample", "Osc B Grain Sample", "Osc C Grain Sample", "LFO 1 Shape", "LFO 2 Shape", "LFO 3 Shape", "LFO 4 Shape", "LFO 5 Shape", "LFO 6 Shape", "MSEG 1", "MSEG 2", "FX Order", "Macro Names", "Scala Scale", "Scala Keyboard Map", "MSEG 3", "MSEG 4", "Osc A Analysed Modes", "Osc B Analysed Modes", "Osc C Analysed Modes", "Scenes", "Motion", "Perform Layout", "Osc A Spectral Source", "Osc B Spectral Source", "Osc C Spectral Source", "Osc A Spectral Cross", "Osc B Spectral Cross", "Osc C Spectral Cross",
-    "L2 Osc A Wavetable", "L2 Osc B Wavetable", "L2 Osc C Wavetable", "L2 Osc A Custom Spectrum", "L2 Osc B Custom Spectrum", "L2 Osc C Custom Spectrum", "L2 Osc A Grain Sample", "L2 Osc B Grain Sample", "L2 Osc C Grain Sample", "L2 LFO 1 Shape", "L2 LFO 2 Shape", "L2 LFO 3 Shape", "L2 LFO 4 Shape", "L2 LFO 5 Shape", "L2 LFO 6 Shape", "L2 MSEG 1", "L2 MSEG 2", "L2 FX Order", "L2 Macro Names", "L2 Scala Scale", "L2 Scala Keyboard Map", "L2 MSEG 3", "L2 MSEG 4", "L2 Osc A Analysed Modes", "L2 Osc B Analysed Modes", "L2 Osc C Analysed Modes", "L2 Scenes", "L2 Motion", "L2 Perform Layout", "L2 Osc A Spectral Source", "L2 Osc B Spectral Source", "L2 Osc C Spectral Source", "L2 Osc A Spectral Cross", "L2 Osc B Spectral Cross", "L2 Osc C Spectral Cross" };
+    "Osc A Wavetable", "Osc B Wavetable", "Osc C Wavetable", "Osc A Custom Spectrum", "Osc B Custom Spectrum", "Osc C Custom Spectrum", "Osc A Grain Sample", "Osc B Grain Sample", "Osc C Grain Sample", "LFO 1 Shape", "LFO 2 Shape", "LFO 3 Shape", "LFO 4 Shape", "LFO 5 Shape", "LFO 6 Shape", "MSEG 1", "MSEG 2", "FX Order", "Macro Names", "Scala Scale", "Scala Keyboard Map", "MSEG 3", "MSEG 4", "Osc A Analysed Modes", "Osc B Analysed Modes", "Osc C Analysed Modes", "Scenes", "Motion", "Perform Layout", "Osc A Spectral Source", "Osc B Spectral Source", "Osc C Spectral Source", "Osc A Spectral Cross", "Osc B Spectral Cross", "Osc C Spectral Cross", "Osc A Custom Spectrum 2", "Osc B Custom Spectrum 2", "Osc C Custom Spectrum 2",
+    "L2 Osc A Wavetable", "L2 Osc B Wavetable", "L2 Osc C Wavetable", "L2 Osc A Custom Spectrum", "L2 Osc B Custom Spectrum", "L2 Osc C Custom Spectrum", "L2 Osc A Grain Sample", "L2 Osc B Grain Sample", "L2 Osc C Grain Sample", "L2 LFO 1 Shape", "L2 LFO 2 Shape", "L2 LFO 3 Shape", "L2 LFO 4 Shape", "L2 LFO 5 Shape", "L2 LFO 6 Shape", "L2 MSEG 1", "L2 MSEG 2", "L2 FX Order", "L2 Macro Names", "L2 Scala Scale", "L2 Scala Keyboard Map", "L2 MSEG 3", "L2 MSEG 4", "L2 Osc A Analysed Modes", "L2 Osc B Analysed Modes", "L2 Osc C Analysed Modes", "L2 Scenes", "L2 Motion", "L2 Perform Layout", "L2 Osc A Spectral Source", "L2 Osc B Spectral Source", "L2 Osc C Spectral Source", "L2 Osc A Spectral Cross", "L2 Osc B Spectral Cross", "L2 Osc C Spectral Cross", "L2 Osc A Custom Spectrum 2", "L2 Osc B Custom Spectrum 2", "L2 Osc C Custom Spectrum 2" };
 static inline int stateIndexOf(const char* key) {
     if (!key) return -1;
     for (int k = 0; k < kStateCount; ++k) { const char* a = kStateKeys[k]; const char* b = key; while (*a && *a == *b) { ++a; ++b; } if (!*a && !*b) return k; }

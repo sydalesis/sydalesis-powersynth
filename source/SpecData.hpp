@@ -20,6 +20,7 @@ struct SpecData {
     float root = 261.6256f;                   // frequency played at the original pitch (detected, or C4)
     bool pitched = false;
     float peak = 1.f;                         // largest magnitude in the file
+    float rmsIn = 0.13f;                      // 6.0: RMS of the analysed audio (level compensation)
     std::vector<float> mag;                   // frames * bins
     std::vector<int16_t> dev, ph;             // frames * bins
     std::string name;

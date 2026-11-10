@@ -68,6 +68,12 @@ struct FxChain {
     // phaser
     float apL[6] = {}, apR[6] = {};
     float phFbL = 0.f, phFbR = 0.f, phPhase = 0.f;
+    float spSizeS = -1.f;   // 6.0: smoothed Space size
+    // 6.0: x 2^(m * oct), exactly 1 when unmodulated (fastExp2(0) is not exactly 1: keeps 5.x renders identical)
+    static inline float modMul(float m, float oct) { return m == 0.f ? 1.f : fastExp2(fclamp(m, -1.f, 1.f) * oct); }
+    // 6.0: v + m clamped, but the stored value untouched when unmodulated (some 5.x presets hold values a little
+    // outside the knob range; clamping them would change how they sound)
+    static inline float modAdd(float v, float m, float lo, float hi) { return m == 0.f ? v : fclamp(v + m, lo, hi); }
     // chorus / ensemble / solina / flanger
     static constexpr int kModSize = 8192;
     float* modL = nullptr; float* modR = nullptr;
@@ -251,7 +257,8 @@ struct FxChain {
     void phaser(float* L, float* R, int n, const float* p, const float* gm) {
         const float phMix = fclamp(p[pPhMix] + gm[mdFxPhaser], 0.f, 1.f);
         if (phMix < 0.001f) return;
-        const float inc = p[pPhRate] / fs, depth = p[pPhDepth], fb = p[pPhFb];
+        // 6.0: rate (amount 1 = x8) and feedback are modulation destinations
+        const float inc = gm[mdFxPhRate] == 0.f ? p[pPhRate] / fs : fclamp(p[pPhRate] * modMul(gm[mdFxPhRate], 3.f), 0.005f, 20.f) / fs, depth = p[pPhDepth], fb = modAdd(p[pPhFb], gm[mdFxPhFb], 0.f, 0.95f);
         for (int i = 0; i < n; ++i) {
             const float m1 = 0.5f + 0.5f * sinTurns(phPhase), m2 = 0.5f + 0.5f * sinTurns(phPhase + 0.25f);
             phPhase += inc; if (phPhase >= 1.f) phPhase -= 1.f;
@@ -275,7 +282,7 @@ struct FxChain {
     void chorus(float* L, float* R, int n, const float* p, const float* gm) {
         const float chMix = fclamp(p[pChMix] + gm[mdFxChorus], 0.f, 1.f);
         const int mode = (int)(p[pChMode] + 0.5f);
-        const float rate = p[pChRate], depth = p[pChDepth], fb = p[pChFb];
+        const float rate = gm[mdFxChRate] == 0.f ? p[pChRate] : fclamp(p[pChRate] * modMul(gm[mdFxChRate], 3.f), 0.01f, 20.f), depth = modAdd(p[pChDepth], gm[mdFxChDepth], 0.f, 1.f), fb = p[pChFb];   // 6.0
         const float inc = rate / fs;
         for (int i = 0; i < n; ++i) {
             const float inL = L[i] + (mode == 3 ? flFbL * fb : 0.f);
@@ -335,8 +342,9 @@ struct FxChain {
             const int d = (int)fclamp(p[pDlDiv], 0.f, (float)(kDivs - 1));
             secs = fclamp((float)(kDivBeats[d] * 60.0 / (bpm > 20.0 ? bpm : 120.0)), 0.01f, 2.f);
         }
+        if (gm[mdFxDlTime] != 0.f) secs = fclamp(secs * modMul(gm[mdFxDlTime], 2.f), 0.01f, 2.f);   // 6.0: amount 1 = x4 (glides like tape)
         const float tgt = secs * fs;
-        const float fb = p[pDlFb], damp = 0.05f + 0.9f * (1.f - p[pDlDamp]);
+        const float fb = modAdd(p[pDlFb], gm[mdFxDlFb], 0.f, 0.95f), damp = gm[mdFxDlDamp] == 0.f ? 0.05f + 0.9f * (1.f - p[pDlDamp]) : 0.05f + 0.9f * (1.f - fclamp(p[pDlDamp] + gm[mdFxDlDamp], 0.f, 1.f));
         const bool pp = p[pDlMode] >= 0.5f;
         const float sm = 1.f - std::exp(-1.f / (0.08f * fs));
         for (int i = 0; i < n; ++i) {
@@ -359,7 +367,7 @@ struct FxChain {
         const float mix = fclamp(p[pFsMix] + gm[mdFxShiftMix], 0.f, 1.f);
         if (mix < 0.001f) return;
         const float hz = fclamp(p[pFsShift] + gm[mdFxShift] * 200.f, -2000.f, 2000.f);
-        const float fb = p[pFsFb], st = p[pFsStereo];
+        const float fb = modAdd(p[pFsFb], gm[mdFxFsFb], 0.f, 0.95f), st = p[pFsStereo];
         const double inc = (double)hz / fs;
         for (int i = 0; i < n; ++i) {
             float re, im, c, s;
@@ -381,9 +389,11 @@ struct FxChain {
 
     void tape(float* L, float* R, int n, const float* p, const float* gm) {
         const float mix = p[pTpMix];
-        const float wow = fclamp(p[pTpWow] + gm[mdFxWow], 0.f, 1.f), flut = p[pTpFlutter], drv = p[pTpDrive];
+        const float wow = fclamp(p[pTpWow] + gm[mdFxWow], 0.f, 1.f), flut = modAdd(p[pTpFlutter], gm[mdFxTpFlutter], 0.f, 1.f), drv = p[pTpDrive];
         const float g = 1.f + drv * 4.f, comp = 1.f / (1.f + drv * 1.2f);
-        const float lpc = 1.f - std::exp(-6.2831853f * (2500.f * fastExp2(p[pTpTone] * 3.f)) / fs);
+        float lpc;
+        if (gm[mdFxTpTone] == 0.f) lpc = 1.f - std::exp(-6.2831853f * (2500.f * fastExp2(p[pTpTone] * 3.f)) / fs);   // the 5.x expression, unchanged
+        else lpc = 1.f - std::exp(-6.2831853f * (2500.f * fastExp2(fclamp(p[pTpTone] + gm[mdFxTpTone], 0.f, 1.f) * 3.f)) / fs);
         const float wowInc = fclamp(p[pTpWowRate], 0.05f, 4.f) / fs, flInc = fclamp(p[pTpFlutRate], 2.f, 30.f) / fs;   // 5.1.6: were fixed 0.45 / 7.3 Hz
         const float wowDepth = wow * 0.006f * fs, flDepth = flut * 0.0004f * fs, base = 0.008f * fs;
         for (int i = 0; i < n; ++i) {
@@ -449,8 +459,8 @@ struct FxChain {
     void resonator(float* L, float* R, int n, const float* p, const float* gm) {
         if (!rsBuf) return;
         const float mix = fclamp(p[pRsMix] + gm[mdFxReso], 0.f, 1.f);
-        const float decay = fclamp(p[pRsDecay], 0.1f, 40.f);
-        const float bright = fclamp(p[pRsBright], 0.f, 1.f);
+        const float decay = gm[mdFxRsDecay] == 0.f ? fclamp(p[pRsDecay], 0.1f, 40.f) : fclamp(p[pRsDecay] * modMul(gm[mdFxRsDecay], 3.f), 0.1f, 40.f);
+        const float bright = gm[mdFxRsBright] == 0.f ? fclamp(p[pRsBright], 0.f, 1.f) : fclamp(p[pRsBright] + gm[mdFxRsBright], 0.f, 1.f);
         const float lpc = 0.08f + 0.92f * bright * bright;
         const float width = fclamp(p[pRsWidth], 0.f, 1.f);
         const float inC = 1.f - std::exp(-6.2831853f * (600.f + 9000.f * bright) / fs);
@@ -494,9 +504,13 @@ struct FxChain {
     void space(float* L, float* R, int n, const float* p, const float* gm) {
         if (!spBuf) return;
         const float mix = fclamp(p[pSpMix] + gm[mdFxSpace], 0.f, 1.f);
-        const float size = fclamp(p[pSpSize], 0.f, 1.f);
-        const float t60 = fclamp(p[pSpDecay], 0.2f, 80.f);
-        const float damp = fclamp(p[pSpDamp], 0.f, 1.f);
+        // 6.0: size glides (a sudden jump would click in the delay lines); decay amount 1 = x8
+        const float sizeT = gm[mdFxSpSize] == 0.f ? fclamp(p[pSpSize], 0.f, 1.f) : fclamp(p[pSpSize] + gm[mdFxSpSize], 0.f, 1.f);
+        if (spSizeS < 0.f || spSizeS == sizeT) spSizeS = sizeT;
+        else { spSizeS += (sizeT - spSizeS) * (1.f - std::exp(-(float)n / (0.15f * fs))); if (std::fabs(sizeT - spSizeS) < 1e-5f) spSizeS = sizeT; }
+        const float size = spSizeS;
+        const float t60 = gm[mdFxSpDecay] == 0.f ? fclamp(p[pSpDecay], 0.2f, 80.f) : fclamp(p[pSpDecay] * modMul(gm[mdFxSpDecay], 3.f), 0.2f, 80.f);
+        const float damp = gm[mdFxSpDamp] == 0.f ? fclamp(p[pSpDamp], 0.f, 1.f) : fclamp(p[pSpDamp] + gm[mdFxSpDamp], 0.f, 1.f);
         const float modD = fclamp(p[pSpMod], 0.f, 1.f) * 0.0012f * fs;
         const float width = fclamp(p[pSpWidth], 0.f, 1.f);
         const int pre = (int)fclamp(p[pSpPre] * fs, 0.f, (float)spPreSize - 2.f);
@@ -560,8 +574,8 @@ struct FxChain {
         const int N = sxN, B = sxB, H = sxH;
         const bool freeze = p[pSxFreeze] >= 0.5f;
         const float blurT = fclamp(p[pSxBlur] + gm[mdFxSpecBlur] * 10.f, 0.f, 40.f);
-        const float ratio = fastExp2(fclamp(p[pSxShift], -24.f, 24.f) / 12.f);
-        const float tilt = fclamp(p[pSxTilt], -1.f, 1.f), spread = fclamp(p[pSxSpread], 0.f, 1.f), gate = fclamp(p[pSxGate], 0.f, 1.f);
+        const float ratio = gm[mdFxSxShift] == 0.f ? fastExp2(fclamp(p[pSxShift], -24.f, 24.f) / 12.f) : fastExp2(fclamp(p[pSxShift] + gm[mdFxSxShift] * 24.f, -24.f, 24.f) / 12.f);
+        const float tilt = gm[mdFxSxTilt] == 0.f ? fclamp(p[pSxTilt], -1.f, 1.f) : fclamp(p[pSxTilt] + gm[mdFxSxTilt], -1.f, 1.f), spread = fclamp(p[pSxSpread], 0.f, 1.f), gate = fclamp(p[pSxGate], 0.f, 1.f);
         const bool transparent = !freeze && blurT < 0.01f && std::fabs(ratio - 1.f) < 1e-4f && tilt == 0.f && gate == 0.f && spread == 0.f;
         // the last N input samples, windowed, L + iR in one forward FFT
         for (int i = 0; i < N; ++i) {

@@ -292,6 +292,7 @@ struct SampleBuf {
     float* data = nullptr;     // len + 4 guard samples
     int len = 0;
     float sr = 48000.f;
+    float rms = 0.13f;         // 6.0: RMS after the peak normalisation (level compensation)
     std::string name;
 };
 

@@ -54,6 +54,7 @@ SampleBuf* loadSampleFile(const char* path, std::string* err)
     s->data = new float[x.size() + 4];
     for (size_t i = 0; i < x.size(); ++i) s->data[i] = x[i] * g;
     for (int i = 0; i < 4; ++i) s->data[x.size() + i] = s->data[i];
+    { double e = 0.0; for (size_t i = 0; i < x.size(); ++i) e += (double)s->data[i] * s->data[i]; s->rms = x.empty() ? 0.13f : (float)std::sqrt(e / (double)x.size()); }
     s->name = fileStem(path);
     return s;
 }
@@ -67,6 +68,7 @@ bool analyseSpec(const float* x, int n, float sr, SpecData& d)
     if (n > maxN) n = maxN;
     d = SpecData();
     d.sr = sr;
+    { double e = 0.0; for (int i = 0; i < n; ++i) e += (double)x[i] * x[i]; d.rmsIn = (float)std::sqrt(e / (double)n); }   // 6.0
     d.N = sr > 50000.f ? 4096 : 2048;
     d.hop = d.N / 4;
     d.bins = d.N / 2 + 1;
