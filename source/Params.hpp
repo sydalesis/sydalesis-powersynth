@@ -247,7 +247,12 @@ enum ModDest {
     mdMseg3Rate, mdMseg4Rate, mdAPress, mdBPress, mdCPress, mdFxReso, mdFxSpace,      // 4.2
     mdFxSpecMix, mdFxSpecBlur,                                                        // 5.0
     mdAOct, mdASemi, mdAFine, mdBOct, mdBSemi, mdBFine, mdCOct, mdCSemi, mdCFine,      // 5.1.6: OCT / SEMI / FINE knobs
+    mdAT5, mdAT6, mdAT7, mdAT8, mdAT9, mdAT10,                                        // 5.1.7: engine parameters
+    mdBT5, mdBT6, mdBT7, mdBT8, mdBT9, mdBT10,                                        //        Timbre 1-4 do not reach
+    mdCT5, mdCT6, mdCT7, mdCT8, mdCT9, mdCT10,                                        //        (see kTimbreXNames)
     kModDstCount };
+static constexpr int kTimbreX = 6;
+static inline int modDstXBase(int osc) { return mdAT5 + osc * kTimbreX; }
 static inline int modDstTuneBase(int osc) { return mdAOct + osc * 3; }   // + 0 octave, 1 semi, 2 fine
 static constexpr int kOscDstStride = 9;   // pitch level pan t1 t2 t3 t4 fm detune
 static inline int modDstOscBase(int osc) { return mdAPitch + osc * kOscDstStride; }
@@ -265,7 +270,10 @@ static const char* const kModDstNames[kModDstCount] = {
     "FX Width", "FX Drive",
     "MSEG 3 Rate", "MSEG 4 Rate", "A Pressure", "B Pressure", "C Pressure", "FX Resonator Mix", "FX Space Mix",
     "FX Spectral Mix", "FX Spectral Blur",
-    "A Octave", "A Semi", "A Fine", "B Octave", "B Semi", "B Fine", "C Octave", "C Semi", "C Fine" };
+    "A Octave", "A Semi", "A Fine", "B Octave", "B Semi", "B Fine", "C Octave", "C Semi", "C Fine",
+    "A Timbre 5", "A Timbre 6", "A Timbre 7", "A Timbre 8", "A Timbre 9", "A Timbre 10",
+    "B Timbre 5", "B Timbre 6", "B Timbre 7", "B Timbre 8", "B Timbre 9", "B Timbre 10",
+    "C Timbre 5", "C Timbre 6", "C Timbre 7", "C Timbre 8", "C Timbre 9", "C Timbre 10" };
 
 // What "Timbre 1..4" mean for each oscillator engine (shown in the UI)
 static const char* const kTimbreNames[kOscTypes][4] = {
@@ -275,6 +283,14 @@ static const char* const kTimbreNames[kOscTypes][4] = {
     { "Position", "Hardness", "Decay", "Damping" },
     { "Position", "Size", "Density", "Spray" },
     { "Position", "Blur", "Shift", "Cross" } };
+// 5.1.7: Timbre 5..10 - the rest of each engine's continuous knobs (nullptr = no target on that engine)
+static const char* const kTimbreXNames[kOscTypes][kTimbreX] = {
+    { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
+    { "Osc Drift", nullptr, nullptr, nullptr, nullptr, nullptr },
+    { "Stretch", "Odd/Even", "Peak Amount", "Comb Shift", "Shimmer", "Partial Detune" },
+    { "Stretch", "Mode Spread", "Coupling", "Buzz / Sympathy", "Exciter Noise", "Nonlinearity" },
+    { "Scan", "Pitch Rnd", "Spread", "Reverse", nullptr, nullptr },
+    { "Speed", "Stretch", "Tilt", "Formant", "Sparse", nullptr } };
 
 // FX units, in the default chain order
 enum FxUnit { fxDrive, fxPhaser, fxChorus, fxDelay, fxShift, fxTape, fxCrush, fxWidth, fxEq, fxReso, fxSpace, fxSpectral, kFxUnits };

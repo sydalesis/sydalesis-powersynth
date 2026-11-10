@@ -155,7 +155,7 @@ protected:
     const char* getMaker() const override       { return "Sydalesis"; }
     const char* getHomePage() const override    { return "https://sydalesis.bandcamp.com"; }
     const char* getLicense() const override     { return "Copyright Sydalesis"; }
-    uint32_t    getVersion() const override     { return d_version(5, 1, 6); }
+    uint32_t    getVersion() const override     { return d_version(5, 1, 7); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override
     {

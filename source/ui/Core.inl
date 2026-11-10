@@ -349,6 +349,11 @@
             const int o = (d - mdAPitch) / kOscDstStride, k = (d - mdAPitch) % kOscDstStride;
             if (k >= 3 && k <= 6) return std::string(1, (char)('A' + o)) + ": " + kTimbreNames[oscType(o)][k - 3];
         }
+        if (d >= mdAT5 && d < mdAT5 + 3 * kTimbreX) {                     // 5.1.7: Timbre 5..10
+            const int o = (d - mdAT5) / kTimbreX, k = (d - mdAT5) % kTimbreX;
+            const char* n = kTimbreXNames[oscType(o)][k];
+            return std::string(1, (char)('A' + o)) + ": " + (n ? n : (std::string("Timbre ") + std::to_string(5 + k) + " (unused)").c_str());
+        }
         return kModDstNames[std::max(0, std::min((int)kModDstCount - 1, d))];
     }
     std::string valueName(uint32_t p, float v) const {

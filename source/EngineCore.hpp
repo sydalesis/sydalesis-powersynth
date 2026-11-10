@@ -773,6 +773,7 @@ private:
     float f1Smooth = 10.f, f2Smooth = 10.f, f1Blk[kBlocksPerChunk], f2Blk[kBlocksPerChunk];
     float masterS = 0.5f;
     float gmd[kModDstCount];
+    float tx[kTimbreX] = {};   // 5.1.7: Timbre 5..10 of the oscillator being updated
     FxChain fx;
     float winTab[3][kWinSize + 1];
     float winKey[3] = { -1, -1, -1 };
@@ -1425,6 +1426,7 @@ private:
             ov.pan = pan;
             { float sa, ca; fastSinCos((pan + 1.f) * 0.25f * kPiF, sa, ca); ov.panL = ca * 1.4142f; ov.panR = sa * 1.4142f; }
             const float t1 = md[mb + 3] + timbreAll, t2 = md[mb + 4], t3 = md[mb + 5], t4 = md[mb + 6];
+            for (int k = 0; k < kTimbreX; ++k) tx[k] = md[modDstXBase(o) + k];   // 5.1.7: Timbre 5..10, read by the engine updates
             ov.fmSrc = oiparam(o, ofFmSrc, 0, 5);
             ov.fmMode = oiparam(o, ofFmMode, 0, 3);
             ov.fmAmt = clampf(op(o, ofFmAmt) + md[mb + 7], 0.f, 1.f);
@@ -1445,7 +1447,7 @@ private:
                 if (detune < 0.f) detune = 0.f;
                 const float slopV = ov.type == otAnalog ? clampf(op(o, ofAnSlop) + (ov.type == otAnalog ? t3 : 0.f), 0.f, 1.f) : 0.f;
                 const float slopC = slopV * 9.f;
-                const float driftCents = (p[pDrift] + (ov.type == otAnalog ? op(o, ofAnDrift) : 0.f)) * 14.f + slopV * 10.f;
+                const float driftCents = (p[pDrift] + (ov.type == otAnalog ? clampf(op(o, ofAnDrift) + tx[0], 0.f, 1.f) : 0.f)) * 14.f + slopV * 10.f;
                 const float uniW = clampf(op(o, ofUniWidth) + (ov.type == otWavetable ? t3 : t4), 0.f, 1.f);
                 float norm = 1.f / std::sqrt((float)nu);
                 float syncRatio = 1.f;
@@ -1578,17 +1580,17 @@ private:
         const float* B = s2 == kSpecCustom ? custom[o][ci] : spec[s2];
         const float morph = clampf(op(o, ofAdMorph) + t1, 0.f, 1.f);
         const float tilt = clampf(op(o, ofAdTilt) + t3, -1.f, 1.f) * 1.5f;
-        const float oe = op(o, ofAdOddEven);
+        const float oe = clampf(op(o, ofAdOddEven) + tx[1], -1.f, 1.f);
         const float oddW = oe > 0.f ? 1.f - oe : 1.f, evenW = oe < 0.f ? 1.f + oe : 1.f;
-        const float stretch = op(o, ofAdStretch);
+        const float stretch = clampf(op(o, ofAdStretch) + tx[0], -1.f, 1.f);
         const float stretchExp = 1.f + 0.08f * stretch;
         const float peakPos = clampf(op(o, ofAdPeakPos) * fastExp2(clampf(t2, -1.f, 1.f) * 3.f), 1.f, 128.f);
-        const float peakAmt = op(o, ofAdPeakAmt) * 8.f;
+        const float peakAmt = clampf(op(o, ofAdPeakAmt) + tx[2], 0.f, 1.f) * 8.f;
         const float peakW = (0.4f + 6.f * op(o, ofAdPeakWidth)) * (1.f + peakPos * 0.08f);
-        const float comb = op(o, ofAdComb), combShift = op(o, ofAdCombShift);
-        const float shim = op(o, ofAdShimmer) * 0.85f;
+        const float comb = op(o, ofAdComb), combShift = op(o, ofAdCombShift) + tx[3];   // a phase: wraps
+        const float shim = clampf(op(o, ofAdShimmer) + tx[4], 0.f, 1.f) * 0.85f;
         const float shimInc = op(o, ofAdShimRate) * dtb;
-        const float det = op(o, ofAdDetune);
+        const float det = clampf(op(o, ofAdDetune) + tx[5] * 30.f, 0.f, 30.f);
         const float vowel = clampf(op(o, ofAdVowel) + t4, 0.f, 1.f), vowelAmt = op(o, ofAdVowelAmt);
         const bool freeze = op(o, ofAdFreeze) >= 0.5f;
         const float blur = op(o, ofAdBlur);
@@ -1682,10 +1684,14 @@ private:
         const float damp = clampf(op(o, ofPmDamp) + t4, 0.f, 1.f);
         const float hard = clampf(op(o, ofPmHard) + t2, 0.f, 1.f);
         const float posn = clampf(op(o, ofPmPos) + t1 * 0.5f, 0.02f, 0.98f);
-        const float stretch = 1.f + 0.1f * op(o, ofPmStretch);
-        const float spread = op(o, ofPmSpread);
-        const float couple = op(o, ofPmCouple);
-        const float buzz = op(o, ofPmBuzz);
+        // 5.1.7: Timbre 5..10. Stretch / Spread / Coupling reshape the modal bank, so moving them rebuilds it
+        // (same cost as modulating Decay or Damping)
+        const float stretch = 1.f + 0.1f * clampf(op(o, ofPmStretch) + tx[0], -1.f, 1.f);
+        const float spread = clampf(op(o, ofPmSpread) + tx[1], 0.f, 1.f);
+        const float couple = clampf(op(o, ofPmCouple) + tx[2], 0.f, 1.f);
+        const float buzz = clampf(op(o, ofPmBuzz) + tx[3], 0.f, 1.f);
+        ov.noiseAmt = clampf(ov.noiseAmt + tx[4], 0.f, 1.f);
+        ov.nonlin = clampf(ov.nonlin + tx[5], 0.f, 1.f);
         const float nyq = 0.45f * fs;
         v.telT[o][0] = posn; v.telT[o][1] = hard; v.telT[o][2] = decay; v.telT[o][3] = damp;
         ov.excCoef = 0.02f + 0.9f * hard * hard;
@@ -1813,8 +1819,9 @@ private:
         ov.spBlur = clampf(q(o2SpBlur) + t2 * 5.f, 0.f, 20.f);
         ov.spShiftHz = clampf(q(o2SpShift) + t3 * 200.f, -2000.f, 2000.f);
         ov.spCross = clampf(q(o2SpCross) + t4, 0.f, 1.f);
-        ov.spSpeed = q(o2SpSpeed);
-        ov.spStretch = q(o2SpStretch); ov.spTilt = q(o2SpTilt); ov.spFormant = q(o2SpFormant); ov.spSparse = q(o2SpSparse);
+        ov.spSpeed = clampf(q(o2SpSpeed) + tx[0] * 2.f, -2.f, 2.f);
+        ov.spStretch = clampf(q(o2SpStretch) + tx[1], -1.f, 1.f); ov.spTilt = clampf(q(o2SpTilt) + tx[2], -1.f, 1.f);
+        ov.spFormant = clampf(q(o2SpFormant) + tx[3], 0.f, 1.f); ov.spSparse = clampf(q(o2SpSparse) + tx[4], 0.f, 1.f);
         ov.spCrossMode = (int)(q(o2SpCrossMode) + 0.5f);
         ov.spSpread = p[pSpread];
         const SpecData* A = spslots[o][0].active;
@@ -2018,13 +2025,13 @@ private:
         ov.grSpray = clampf(op(o, ofGrSpray) + t4, 0.f, 1.f);
         ov.grSizeS = size * fs;
         ov.grInterval = fs / dens;
-        ov.grPitchRnd = op(o, ofGrPitchRand);
-        ov.grRev = op(o, ofGrReverse);
-        ov.grSpread = op(o, ofGrSpread);
+        ov.grPitchRnd = clampf(op(o, ofGrPitchRand) + tx[1] * 1200.f, 0.f, 1200.f);
+        ov.grRev = clampf(op(o, ofGrReverse) + tx[3], 0.f, 1.f);
+        ov.grSpread = clampf(op(o, ofGrSpread) + tx[2], 0.f, 1.f);
         ov.grMax = grainCap();
         const float overlap = dens * size;
         ov.grGain = 0.9f / std::sqrt(overlap > 1.f ? overlap : 1.f);
-        ov.grScan += op(o, ofGrScan) * 0.08f * (float)kBlock / fs;
+        ov.grScan += clampf(op(o, ofGrScan) + tx[0], -1.f, 1.f) * 0.08f * (float)kBlock / fs;
         ov.grScan -= std::floor(ov.grScan);
         const SampleBuf* sb = sslots[o].active;
         if (ov.grSource == 0 || !sb) ov.grBaseInc = semisToHz(semis) / fs;                       // cycles per sample

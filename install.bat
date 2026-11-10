@@ -1,5 +1,5 @@
 @echo off
-rem Sydalesis 5.1.6 installer (formerly Driftfield). Installs Sydalesis.vst3 / .clap as a NEW plug-in next to
+rem Sydalesis 5.1.7 installer (formerly Driftfield). Installs Sydalesis.vst3 / .clap as a NEW plug-in next to
 rem Driftfield, which stays installed for sessions made with it. Run as administrator (Common Files is protected).
 setlocal
 set "HERE=%~dp0"

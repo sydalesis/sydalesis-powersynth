@@ -307,7 +307,7 @@
             labelS(c.x + 200, y, v, 9.5f, col, ALIGN_LEFT | ALIGN_MIDDLE);
             y += 24;
         };
-        line("Version", "Sydalesis 5.1.6  (formerly Driftfield · 6,050 presets)", cText);
+        line("Version", "Sydalesis 5.1.7  (formerly Driftfield · 6,050 presets)", cText);
         line("Options", "global for every instance, saved in " + driftDir() + "/options-v3.txt", cDim);
         std::snprintf(b, sizeof(b), "%.0f fps measured  (timer %s)", fpsMeasured, tickerOn ? "active" : "unavailable, using host idle");
         line("UI frame rate", b, cText);

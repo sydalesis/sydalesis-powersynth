@@ -1,0 +1,30 @@
+SYDALESIS 5.1.7
+===============
+
+Mod matrix
+- New destinations A/B/C Timbre 5-10. They reach the engine knobs Timbre 1-4 did not cover.
+  The matrix menu shows each one by its knob name for the oscillator's current engine:
+    Analog     T5 Osc Drift
+    Additive   T5 Stretch, T6 Odd/Even, T7 Peak Amount, T8 Comb Shift, T9 Shimmer,
+               T10 Partial Detune
+    Physical   T5 Stretch, T6 Mode Spread, T7 Coupling, T8 Buzz / Sympathy,
+               T9 Exciter Noise, T10 Nonlinearity
+    Granular   T5 Scan, T6 Pitch Rnd, T7 Spread, T8 Reverse (sample sources only)
+    Spectral   T5 Speed, T6 Stretch, T7 Tilt, T8 Formant, T9 Sparse
+  Slots an engine has no knob for are labelled "(unused)" and do nothing.
+  Wavetable has no extra targets (Timbre 1-4 already cover its knobs).
+- Amount 1 = the knob's full range (Partial Detune 30 ct, Pitch Rnd 1200 ct, Speed 2x).
+- These knobs now show modulation rings and accept drag-to-assign / right-drag depth like
+  the others.
+- They are per voice, so MPE pressure / slide / note random work on them.
+- Physical Stretch, Mode Spread and Coupling rebuild the modal bank while they move. CPU
+  cost is the same as modulating Decay or Damping already was.
+- Grain Shape is not a destination: its window is shared by all voices of the oscillator.
+
+Fixes
+- Dropdown menus of the top-bar controls (HQ / quality) opened at the bottom of the window.
+  They now open right under the control.
+
+Compatibility
+- Presets and sessions from 5.1.6 load and sound unchanged; existing destinations keep
+  their numbers.

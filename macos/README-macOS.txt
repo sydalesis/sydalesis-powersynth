@@ -1,4 +1,4 @@
-SYDALESIS 5.1.6 FOR macOS
+SYDALESIS 5.1.7 FOR macOS
 =========================
 
 Universal build: runs natively on Apple Silicon (M1-M4) and Intel Macs, macOS 10.15 or later.

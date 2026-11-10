@@ -376,6 +376,26 @@ static inline DestMap destMap(int d, const int* oscType) {
         return { (int)oscP(o, f[k]), 0, sc[k] };
     }
     if (d >= mdAPitch && d < mdAPitch + 3 * kOscDstStride) { const int o = (d - mdAPitch) / kOscDstStride; return oscMap(o, (d - mdAPitch) % kOscDstStride); }
+    if (d >= mdAT5 && d < mdAT5 + 3 * kTimbreX) {                         // 5.1.7: Timbre 5..10 (scales match the engine)
+        const int o = (d - mdAT5) / kTimbreX, k = (d - mdAT5) % kTimbreX;
+        struct X { uint32_t f; bool second; float scale; };
+        static const X an[kTimbreX] = { { ofAnDrift, false, 1.f }, {}, {}, {}, {}, {} };
+        static const X ad[kTimbreX] = { { ofAdStretch, false, 1.f }, { ofAdOddEven, false, 1.f }, { ofAdPeakAmt, false, 1.f },
+                                        { ofAdCombShift, false, 1.f }, { ofAdShimmer, false, 1.f }, { ofAdDetune, false, 30.f } };
+        static const X pm[kTimbreX] = { { ofPmStretch, false, 1.f }, { ofPmSpread, false, 1.f }, { ofPmCouple, false, 1.f },
+                                        { ofPmBuzz, false, 1.f }, { o2Noise, true, 1.f }, { o2Nonlin, true, 1.f } };
+        static const X gr[kTimbreX] = { { ofGrScan, false, 1.f }, { ofGrPitchRand, false, 1200.f }, { ofGrSpread, false, 1.f },
+                                        { ofGrReverse, false, 1.f }, {}, {} };
+        static const X sp[kTimbreX] = { { o2SpSpeed, true, 2.f }, { o2SpStretch, true, 1.f }, { o2SpTilt, true, 1.f },
+                                        { o2SpFormant, true, 1.f }, { o2SpSparse, true, 1.f }, {} };
+        const X* t = nullptr;
+        switch (oscType[o]) {
+        case otAnalog: t = an; break; case otAdditive: t = ad; break; case otPhysical: t = pm; break;
+        case otGranular: t = gr; break; case otSpectral: t = sp; break; default: break;
+        }
+        if (!t || t[k].scale == 0.f) return { -1, 0, 0.f };
+        return { (int)(t[k].second ? osc2P(o, t[k].f) : oscP(o, t[k].f)), 0, t[k].scale };
+    }
     return { -1, 0, 0.f };
 }
 
