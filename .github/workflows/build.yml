@@ -58,9 +58,11 @@ jobs:
           [ -f pluginval.log ] || exit 0
           msg=$(tail -25 pluginval.log | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           echo "::notice title=pluginval (VST3)::$msg"
+      - name: Version
+        run: echo "VERSION=$(sed -n 's/^VERSION="\(.*\)"/\1/p' build-windows.sh)" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
-          name: Sydalesis-macOS
+          name: Sydalesis-${{ env.VERSION }}-macOS
           path: dist/Sydalesis-*-macOS.zip
   windows:
     runs-on: ubuntu-24.04        # cross-compiled with MinGW-w64, as every Windows release so far
@@ -77,9 +79,11 @@ jobs:
         run: |
           msg=$( (grep -E -i 'error|undefined|fatal' build.log || tail -40 build.log) | head -40 | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           echo "::error title=Windows build failed::$msg"
+      - name: Version
+        run: echo "VERSION=$(sed -n 's/^VERSION="\(.*\)"/\1/p' build-windows.sh)" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
-          name: Sydalesis-win64
+          name: Sydalesis-${{ env.VERSION }}-win64
           path: dist/Sydalesis-*-win64.zip
   tests:
     runs-on: ubuntu-24.04
@@ -93,7 +97,7 @@ jobs:
           g++ $F -mavx2 -mfma -c EngineAVX2.cpp -o /tmp/ea.o
           g++ $F -c EngineFactory.cpp -o /tmp/ef.o
           g++ $F -c Platform.cpp -o /tmp/pl.o
-          for t in smoke v513 v511 v516; do
+          for t in smoke v513 v511 v516 v517; do
             g++ -O2 -std=gnu++17 test/$t.cpp /tmp/eg.o /tmp/ea.o /tmp/ef.o /tmp/pl.o -lpthread -o /tmp/$t
             (cd test && /tmp/$t | tail -2)
           done
