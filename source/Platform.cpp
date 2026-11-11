@@ -8,7 +8,20 @@
  #endif
  #include <windows.h>
  #include <shlobj.h>
+ #include <shellapi.h>
 #endif
+
+// 6.0: open a web page in the default browser (the synth's page / Bandcamp links)
+void driftPlatformOpenUrl(const char* url)
+{
+#if defined(_WIN32)
+    ShellExecuteA(nullptr, "open", url, nullptr, nullptr, SW_SHOWNORMAL);
+#elif defined(__APPLE__)
+    const std::string c = std::string("open '") + url + "' &"; (void)std::system(c.c_str());
+#else
+    const std::string c = std::string("xdg-open '") + url + "' >/dev/null 2>&1 &"; (void)std::system(c.c_str());
+#endif
+}
 
 std::string driftPlatformDocumentsDir()
 {

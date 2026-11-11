@@ -12,22 +12,9 @@
 #include "Analysis.hpp"
 #include "SpecData.hpp"
 #include "FmAlgos.hpp"
-#if defined(_WIN32)
-#include <windows.h>
-#include <shellapi.h>
-#endif
-#include <cstdlib>
-
-// 6.0: open a web page in the default browser (the Bandcamp link)
-static void openUrl(const char* url) {
-#if defined(_WIN32)
-    ShellExecuteA(nullptr, "open", url, nullptr, nullptr, SW_SHOWNORMAL);
-#elif defined(__APPLE__)
-    std::string c = std::string("open '") + url + "' &"; (void)std::system(c.c_str());
-#else
-    std::string c = std::string("xdg-open '") + url + "' >/dev/null 2>&1 &"; (void)std::system(c.c_str());
-#endif
-}
+// 6.0: open a web page in the default browser (Platform.cpp)
+void driftPlatformOpenUrl(const char* url);
+static void openUrl(const char* url) { driftPlatformOpenUrl(url); }
 static const char* const kBandcampUrl = "https://sydalesis.bandcamp.com";
 static const char* const kItchUrl = "https://sydalesis.itch.io/";
 #include "FontInter.hpp"

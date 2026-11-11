@@ -286,19 +286,6 @@
         label(1048, y + 40, help, 8.5f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);   // help sits under the buttons
     }
     void drawSetup() {
-        {   // 6.0: about / links
-            label(kW - 520.f, 77, "Sydalesis 6 page", 11.f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
-            itchRect = { kW - 415.f, 66, 150, 22 };
-            label(kW - 250.f, 77, "Music", 11.f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
-            linkRect = { kW - 208.f, 66, 194, 22 };
-            auto link = [&](const Rect& r, const char* t) {
-                const bool hot = hovered(r);
-                labelS(r.x, r.cy(), t, 11.f, hot ? cText : cAccent, ALIGN_LEFT | ALIGN_MIDDLE);
-                if (hot) { beginPath(); moveTo(r.x, r.y + r.h - 2); lineTo(r.x + r.w - 8, r.y + r.h - 2); strokeColor(withA(cAccent, 0.6f)); strokeWidth(1); stroke(); }
-            };
-            link(linkRect, "sydalesis.bandcamp.com ↗");
-            link(itchRect, "sydalesis.itch.io ↗");
-        }
         for (int i = 0; i < kSkinCount; ++i) drawSkinPreview(i, skinTile[i]);
         static const char* const rn[kRefreshCount] = { "30 Hz", "60 Hz", "120 Hz", "Max" };
         static const char* const sn[3] = { "Off", "Light", "Smooth" };
@@ -339,7 +326,18 @@
             labelS(c.x + 200, y, v, 9.5f, col, ALIGN_LEFT | ALIGN_MIDDLE);
             y += 24;
         };
-        line("Version", "Sydalesis 6.0  (formerly Driftfield)", cText);
+        {   // 6.0: version + links (the synth's page, the music)
+            const float ly = y;
+            line("Version", "Sydalesis 6  ·  6.0.0  (formerly Driftfield)", cText);
+            itchRect = { c.x + 420, ly - 10, 150, 20 }; linkRect = { c.x + 600, ly - 10, 200, 20 };
+            auto link = [&](const Rect& r, const char* t) {
+                const bool hot = hovered(r);
+                labelS(r.x, r.cy(), t, 9.5f, hot ? cText : cAccent, ALIGN_LEFT | ALIGN_MIDDLE);
+                if (hot) { beginPath(); moveTo(r.x, r.y + r.h - 1); lineTo(r.x + r.w - 10, r.y + r.h - 1); strokeColor(withA(cAccent, 0.6f)); strokeWidth(1); stroke(); }
+            };
+            link(itchRect, "sydalesis.itch.io  ↗");
+            link(linkRect, "music: sydalesis.bandcamp.com  ↗");
+        }
         line("Options", "global for every instance, saved in " + driftDir() + "/options-v3.txt", cDim);
         std::snprintf(b, sizeof(b), "%.0f fps measured  (timer %s)", fpsMeasured, tickerOn ? "active" : "unavailable, using host idle");
         line("UI frame rate", b, cText);

@@ -796,6 +796,7 @@ private:
     float f1Smooth = 10.f, f2Smooth = 10.f, f1Blk[kBlocksPerChunk], f2Blk[kBlocksPerChunk];
     float masterS = 0.5f;
     float gmd[kModDstCount];
+    Rng fmRng;                 // 6.0: FM oscillator randoms (kept apart from rng)
     float tx[kTimbreX] = {};   // 5.1.7: Timbre 5..10 of the oscillator being updated
     FxChain fx;
     float winTab[3][kWinSize + 1];
@@ -1295,8 +1296,9 @@ private:
                 for (auto& s : ov.symLP) s = 0.f;
                 for (auto& g : ov.gr) g.on = false;
                 ov.grTimer = 0.f; ov.grScan = 0.f;
-                for (int u = 0; u < 4; ++u) { for (int k = 0; k < 6; ++k) ov.fmPh[u][k] = retrig ? 0.f : rng.uni(); ov.fmY1[u] = ov.fmY2[u] = ov.fmHpX[u] = ov.fmHpY[u] = 0.f; }
-                for (int k = 0; k < 6; ++k) { ov.fmEnv[k] = 0.f; ov.fmRnd[k] = rng.bi(); }
+                // 6.0 FM state: its own random source, so every other engine's random sequence stays as in 5.x
+                for (int u = 0; u < 4; ++u) { for (int k = 0; k < 6; ++k) ov.fmPh[u][k] = retrig ? 0.f : fmRng.uni(); ov.fmY1[u] = ov.fmY2[u] = ov.fmHpX[u] = ov.fmHpY[u] = 0.f; }
+                for (int k = 0; k < 6; ++k) { ov.fmEnv[k] = 0.f; ov.fmRnd[k] = fmRng.bi(); }
                 ov.fmFresh = true;
             }
             v.ae.reset(); v.fe.reset(); v.me.reset();
