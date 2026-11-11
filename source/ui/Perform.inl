@@ -144,6 +144,8 @@
             char t[48]; std::snprintf(t, sizeof t, "PAD %d", p + 1);
             label(r.x + 8, r.y + 12, t, 8.5f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
             if (ival(p ? pXy2Mode : pXy1Mode) > 0) label(r.x + r.w - 8, r.y + 12, "auto-motion · drag to move its centre", 8.f, cViolet, ALIGN_RIGHT | ALIGN_MIDDLE);
+            if (p == 1 && (pfAxis[1][0] == pfAxis[0][0] || pfAxis[1][0] == pfAxis[0][1] || pfAxis[1][1] == pfAxis[0][0] || pfAxis[1][1] == pfAxis[0][1]))
+                label(r.x + 8, r.y + 26, "shares a macro with PAD 1 (pick another with the arrows)", 8.f, cWarn, ALIGN_LEFT | ALIGN_MIDDLE);
             for (int a = 0; a < 2; ++a) {
                 label(pfAxisPrev[p][a].x - 12, pfAxisPrev[p][a].cy(), a ? "Y" : "X", 9.5f, cDim, ALIGN_CENTER | ALIGN_MIDDLE);
                 drawButtonArrow(pfAxisPrev[p][a], true, hovered(pfAxisPrev[p][a]));
@@ -274,7 +276,14 @@
                 int d = 0;
                 if (pfAxisPrev[p][a].contains(mx, my)) d = -1;
                 else if (pfAxisNext[p][a].contains(mx, my) || pfAxisBox[p][a].contains(mx, my)) d = 1;
-                if (d) { pfAxis[p][a] = (pfAxis[p][a] + d + kMacros) % kMacros; pushState(skPerf, perfToString(), false); return true; }
+                if (d) {
+                    // 6.0: a macro belongs to one pad only (two pads on one macro moved each other and mixed their
+                    // auto-motion paths), so stepping skips the other pad's macros
+                    const int q = 1 - p;
+                    int m = pfAxis[p][a];
+                    for (int k = 0; k < kMacros; ++k) { m = (m + d + kMacros) % kMacros; if (m != pfAxis[q][0] && m != pfAxis[q][1]) break; }
+                    pfAxis[p][a] = m; pushState(skPerf, perfToString(), false); return true;
+                }
             }
         }
         for (int i = 0; i < kScenes; ++i) {

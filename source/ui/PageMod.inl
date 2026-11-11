@@ -17,6 +17,7 @@
             knob(lfoP(i, lfFade), x + 350, y + 134, 13, "FADE", pgMod);
             knob(lfoP(i, lfPhase), x + 36, y + 176, 12, "PHASE", pgMod);
             knob(lfoP(i, lfSmooth), x + 92, y + 176, 12, "SMOOTH", pgMod);
+            knob(pLRndPh1 + i, x + 148, y + 176, 12, "RND PH", pgMod);   // 6.0
         }
         // random / drift generators
         rndCard = { 1204, 62, 386, 212 };
@@ -104,6 +105,7 @@
             beginPath(); circle(x, y, 1.3f); fillColor(Color(cLfoCol[i].red, cLfoCol[i].green, cLfoCol[i].blue, 0.4f)); fill();
         }
         drawLfoWave(i, r, 1.6f, true);
+        drawLfoSmoothing(i, r);   // 6.0
         restore();
         label(r.x + 6, r.y + 9, custom ? "draw to edit" : "drag in here to draw a custom shape", 7.5f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
         // live value bar
@@ -114,7 +116,7 @@
         beginPath(); rect(b.x, std::min(b.cy(), b.cy() - live * b.h * 0.5f), b.w, std::fabs(live) * b.h * 0.5f); fillColor(cLfoCol[i]); fill();
         const int u = lfoRouteCount(i);
         char rt[48]; std::snprintf(rt, sizeof(rt), u ? "→ %d route%s" : "unassigned — drag ◎", u, u == 1 ? "" : "s");
-        label(c.x + 130, c.y + 176, rt, 8.5f, u ? cDim : cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
+        label(c.x + 182, c.y + 176, rt, 8.5f, u ? cDim : cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
     }
 
     void drawRandom() {
@@ -155,6 +157,19 @@
     }
 
     // ------------------------------------------------------------------ MSEG editor
+    // 6.0 grid step in the MSEG's own time units (seconds or beats divided by TIME x); 0 = no grid
+    float msegGridStepUnits(int m) const {
+        const float g = kMsegGridXVal[optMsegGridX];
+        return g > 0.f ? g / std::max(0.01f, values[msegP(m, 1)]) : 0.f;
+    }
+    float msegSnapT(int m, float tAbs) const {
+        const float g = msegGridStepUnits(m);
+        return (g > 0.f && !msegFree) ? std::round(tAbs / g) * g : tAbs;
+    }
+    float msegSnapL(float l) const {
+        const int n = kMsegGridYVal[optMsegGridY];
+        return (n > 0 && !msegFree) ? std::round(l * n) / n : l;
+    }
     float msegTotal(int m) const { float t = 0.f; for (int i = 1; i < msegD[m].count; ++i) t += msegD[m].t[i]; return std::max(0.05f, t); }
     // 5.1.6: the MAIN page's modulator panel edits the selected MSEG in its own, smaller box
     Rect msegR(int m) const { return page == pgMain ? mainMsegEdit : msegEdit[m]; }
@@ -175,10 +190,25 @@
         // grid: seconds (or beats)
         const bool sync = values[msegP(m, 2)] >= 0.5f;
         const float scale = values[msegP(m, 1)];
-        const float step = total > 20.f ? 5.f : (total > 8.f ? 2.f : (total > 3.f ? 1.f : 0.25f));
-        for (float t = step; t < total; t += step) {
-            const float x = r.x + 8 + (r.w - 16) * t / total;
-            beginPath(); moveTo(x, r.y + 4); lineTo(x, r.y + r.h - 4); strokeColor(cGrid); strokeWidth(1); stroke();
+        // 6.0: with a GRID set, the lines are that step in seconds (beats with SYNC) and points snap to them;
+        // otherwise an automatic step (labelled, so it is clear what the lines are)
+        const float gx = msegGridStepUnits(m);
+        const float step = gx > 0.f ? gx : (total * scale > 20.f ? 5.f : (total * scale > 8.f ? 2.f : (total * scale > 3.f ? 1.f : 0.25f))) / std::max(0.01f, scale);
+        if (total / step < 400.f) {
+            int k = 0;
+            for (float t = step; t < total - 1e-4f; t += step, ++k) {
+                const float x = r.x + 8 + (r.w - 16) * t / total;
+                beginPath(); moveTo(x, r.y + 4); lineTo(x, r.y + r.h - 4); strokeColor(gx > 0.f ? tint(cGrid, 0.25f) : cGrid); strokeWidth(1); stroke();
+            }
+            if (!compact || gx <= 0.f) {
+                char lb[32]; std::snprintf(lb, sizeof lb, "grid %g %s", step * scale, sync ? "beat" : "s");
+                label(r.x + r.w - 8, r.y + r.h - 8, lb, 7.f, cFaint, ALIGN_RIGHT | ALIGN_MIDDLE);
+            }
+        }
+        const int gy = kMsegGridYVal[optMsegGridY];
+        if (gy > 0) for (int k = 1; k < gy; ++k) {
+            const float y = msegPointY(m, (float)k / gy);
+            beginPath(); moveTo(r.x + 4, y); lineTo(r.x + r.w - 4, y); strokeColor(tint(cGrid, 0.15f)); strokeWidth(1); stroke();
         }
         // loop region
         const float lx0 = msegPointX(m, d.loopStart, total), lx1 = msegPointX(m, d.loopEnd, total);
@@ -192,7 +222,10 @@
         const float hy = r.y + r.h - 6;
         if (mode != 0) { beginPath(); moveTo(lx0, hy - 6); lineTo(lx0 + 6, hy); lineTo(lx0, hy); closePath(); fillColor(cBlue); fill(); }
         beginPath(); moveTo(lx1, hy - 6); lineTo(lx1 - 6, hy); lineTo(lx1, hy); closePath(); fillColor(cBlue); fill();
-        if (!compact) label(lx1 + 3, r.y + 10, mode == 0 ? "sustain" : "loop", 7.5f, cBlue, ALIGN_LEFT | ALIGN_MIDDLE);
+        // 6.0: labelled on the MAIN panel too; near the right edge the label sits left of its line
+        const bool endRight = lx1 > r.x + r.w - 56;
+        label(endRight ? lx1 - 3 : lx1 + 3, r.y + (compact ? 20 : 10), mode == 0 ? "sustain" : "loop end", 7.5f, cBlue, (endRight ? ALIGN_RIGHT : ALIGN_LEFT) | ALIGN_MIDDLE);
+        if (mode != 0 && lx0 < lx1 - 100) label(lx0 + 3, r.y + (compact ? 20 : 10), "loop start", 7.5f, withA(cBlue, 0.8f), ALIGN_LEFT | ALIGN_MIDDLE);
         // curve
         beginPath();
         for (int i = 0; i < d.count; ++i) {

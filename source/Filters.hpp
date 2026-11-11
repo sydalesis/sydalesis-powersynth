@@ -27,6 +27,10 @@ enum FilterType {
     kNumFilterTypes
 };
 
+// 6.0: the filter types whose SHAPE control does something (the editor greys it out on the others)
+static inline bool filterUsesShape(int t) {
+    return t == ftSemMorph || (t >= ftDualBP && t <= ftVowel) || (t >= ftFlgFirst && t <= ftFlgLast);
+}
 static inline float fclamp(float x, float a, float b) { return x < a ? a : (x > b ? b : x); }
 static inline float satTanh(float x) {
     x = fclamp(x, -3.f, 3.f);

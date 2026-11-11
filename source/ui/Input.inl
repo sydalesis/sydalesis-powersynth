@@ -28,9 +28,11 @@
         }
         for (int i = 0; i < (int)ctls.size(); ++i) if (visible(ctls[i])) drawCtl(i);
         if (page == pgMain) for (int o = 0; o < 3; ++o) if (values[oscP(o, ofOn)] < 0.5f) dimRect({ oscX[o] + 1, oscY + 32, 388, 410 - 33 });
+        if (page == pgMain) dimUnusedFilterShapes();
         if (sd == sdAssign) {
-            Rect from = sourceHandleRect(assignSrc);
-            beginPath(); moveTo(from.cx(), from.cy()); lineTo(hoverX, hoverY); strokeColor(withA(cViolet, 0.8f)); strokeWidth(2); stroke();
+            // 6.0: the line starts where the drag started (it used to start at the source's handle on the LFO strip
+            // even when the drag began on the MODULATOR panel)
+            beginPath(); moveTo(assignFromX, assignFromY); lineTo(hoverX, hoverY); strokeColor(withA(cViolet, 0.8f)); strokeWidth(2); stroke();
             beginPath(); circle(hoverX, hoverY, 5); fillColor(cViolet); fill();
             label(hoverX + 10, hoverY - 10, kModSrcNames[assignSrc], 9.5f, cViolet, ALIGN_LEFT | ALIGN_MIDDLE);
         }
@@ -53,7 +55,7 @@
         if (page == pgMain) {   // 5.1.6: panel tabs / header handle
             for (int t = 0; t < kMainModTabs; ++t) if (kMainModSrc[t] == src && (src < msLfo1 || src > msLfo6)) return mainModTab[t];
         }
-        if (src >= msLfo1 && src <= msLfo6) return page == pgMod ? lfoHandle[src - msLfo1] : lfoMiniHandle[src - msLfo1];
+        if (src >= msLfo1 && src <= msLfo6) return page == pgMod ? lfoHandle[src - msLfo1] : mainModHandle;
         if (src == msFiltEnv) return envHandle[0];
         if (src == msAmpEnv) return envHandle[1];
         if (src == msModEnv) return envHandle[2];
@@ -66,12 +68,26 @@
         if (src >= msMacro1 && src <= msMacro8) return page == pgMod ? modMacroHandle[src - msMacro1] : macroHandle[src - msMacro1];
         return { hoverX, hoverY, 1, 1 };
     }
+    // 6.0: the rectangle of the handle / tab under the cursor (the assign line starts at its centre)
+    Rect handleRectAt(float x, float y) const {
+        if (page == pgMain) {
+            for (int t = 0; t < kMainModTabs; ++t) if (mainModTab[t].contains(x, y)) return mainModTab[t];
+            if (mainModHandle.contains(x, y)) return mainModHandle;
+            for (int i = 0; i < 3; ++i) if (envHandle[i].contains(x, y)) return envHandle[i];
+            for (int m = 0; m < kMacros; ++m) if (macroHandle[m].contains(x, y)) return macroHandle[m];
+        } else if (page == pgMod) {
+            for (int i = 0; i < kLfos; ++i) if (lfoHandle[i].contains(x, y)) return lfoHandle[i];
+            for (int m = 0; m < kMsegs; ++m) if (msegShown(m) && msegHandle[m].contains(x, y)) return msegHandle[m];
+            for (int g = 0; g < 2; ++g) if (rndHandle[g].contains(x, y)) return rndHandle[g];
+            for (int m = 0; m < kMacros; ++m) if (modMacroHandle[m].contains(x, y)) return modMacroHandle[m];
+        }
+        return { x - 1, y - 1, 2, 2 };
+    }
     int handleAt(float x, float y) const {
         if (page == pgMain) {
             for (int t = 0; t < kMainModTabs; ++t) if (mainModTab[t].contains(x, y)) return kMainModSrc[t];   // 5.1.6 panel tabs
             if (mainModHandle.contains(x, y)) return modSel();
             for (int i = 0; i < 3; ++i) if (envHandle[i].contains(x, y)) return i == 0 ? msFiltEnv : (i == 1 ? msAmpEnv : msModEnv);
-            for (int i = 0; i < kLfos; ++i) if (lfoMiniHandle[i].contains(x, y)) return msLfo1 + i;
             for (int m = 0; m < kMacros; ++m) if (macroHandle[m].contains(x, y)) return msMacro1 + m;
         } else if (page == pgMod) {
             for (int i = 0; i < kLfos; ++i) if (lfoHandle[i].contains(x, y)) return msLfo1 + i;
@@ -167,10 +183,11 @@
         if (undoBtn.contains(mx, my)) { undo(); return true; }
         if (redoBtn.contains(mx, my)) { redo(); return true; }
         if (randBtn.contains(mx, my)) { randOpen = !randOpen; repaint(); return true; }
+        if (initBtn.contains(mx, my)) { initPatch(otWavetable); flash("Init patch (undo restores the previous sound)"); repaint(); return true; }
         for (int i = 0; i < 4; ++i) if (sizeBtn[i].contains(mx, my)) { applyScale(kSizes[i]); saveScale(kSizes[i]); return true; }
 
         // modulation source handles
-        if (const int src = handleAt(mx, my)) { sd = sdAssign; assignSrc = src; selectMod(src); repaint(); return true; }   // 5.1.6: also picks it for the MAIN panel
+        if (const int src = handleAt(mx, my)) { sd = sdAssign; assignSrc = src; { const Rect h = handleRectAt(mx, my); assignFromX = h.cx(); assignFromY = h.cy(); } selectMod(src); repaint(); return true; }   // 5.1.6: also picks it for the MAIN panel
 
         if (page == pgMain && outputClick(mx, my)) return true;
         if (page == pgMain && mainClick(mx, my, ev)) return true;
@@ -229,7 +246,7 @@
         if (sd == sdLyFader) { lyFaderRelease(); return true; }
         if (sd == sdPbBar) { sd = sdNone; repaint(); return true; }
         if (sd == sdAssign) { sd = sdNone; assignTo(assignSrc, mx, my); repaint(); return true; }
-        if (sd == sdAddDraw) { pushState(skSpA + sdIndex, drift::spectrumToString(customSpec[sdIndex]), false); sd = sdNone; return true; }
+        if (sd == sdAddDraw) { pushState(addEditState(sdIndex), drift::spectrumToString(addEditArray(sdIndex)), false); sd = sdNone; return true; }
         if (sd == sdLfoDraw) { pushState(skLfo1 + sdIndex, drift::lfoShapeToString(lfoPts[sdIndex]), false); sd = sdNone; return true; }
         if (sd == sdMsegPoint || sd == sdMsegLoop || sd == sdMsegCurve) { pushState(msegStateKey(sdIndex), drift::msegToString(msegD[sdIndex]), false); sd = sdNone; repaint(); return true; }
         if (sd == sdSeqStep || sd == sdSeqGate) { sd = sdNone; return true; }
@@ -274,9 +291,9 @@
         if (sd == sdXY) { xyDrag(mx, my); return true; }
         if (sd == sdLyFader) { lyFaderSet(sdIndex, mx); return true; }
         if (sd == sdPbBar) { pbBarDrag(my); return true; }
-        if (sd == sdAddDraw) { addDrawAt(sdIndex, mx, my); throttledState(skSpA + sdIndex, [&] { return drift::spectrumToString(customSpec[sdIndex]); }); repaint(); return true; }
+        if (sd == sdAddDraw) { addDrawAt(sdIndex, mx, my); throttledState(addEditState(sdIndex), [&] { return drift::spectrumToString(addEditArray(sdIndex)); }); repaint(); return true; }
         if (sd == sdLfoDraw) { lfoDrawAt(sdIndex, mx, my); throttledState(skLfo1 + sdIndex, [&] { return drift::lfoShapeToString(lfoPts[sdIndex]); }); repaint(); return true; }
-        if (sd == sdMsegPoint || sd == sdMsegLoop || sd == sdMsegCurve) { msegDrag(sdIndex, mx, my, (ev.mod & kModifierShift) != 0); throttledState(msegStateKey(sdIndex), [&] { return drift::msegToString(msegD[sdIndex]); }); repaint(); return true; }
+        if (sd == sdMsegPoint || sd == sdMsegLoop || sd == sdMsegCurve) { msegFree = (ev.mod & kModifierAlt) != 0; msegDrag(sdIndex, mx, my, (ev.mod & kModifierShift) != 0); throttledState(msegStateKey(sdIndex), [&] { return drift::msegToString(msegD[sdIndex]); }); repaint(); return true; }
         if (sd == sdSeqStep || sd == sdSeqGate) { seqDrag(mx, my); return true; }
         if (sd == sdFxCard) {
             fxDropSlot = -1;
@@ -482,8 +499,6 @@
                 if (doubleClick(1000 + m, ev.time)) { textTarget = ttMacro; textIndex = m; textBuf = macroName[m]; repaint(); }
                 return true;
             }
-        // 5.1.6: click = show it in the modulator panel, double-click = open the MOD page
-        for (int i = 0; i < kLfos; ++i) if (lfoMini[i].contains(mx, my)) { if (doubleClick(4000 + i, ev.time)) page = pgMod; else selectMod(msLfo1 + i); repaint(); return true; }
         return false;
     }
     bool modClick(float mx, float my, const MouseEvent& ev) {
@@ -537,8 +552,19 @@
         setParamUser(oscP(o, ofAdSpec1), (float)kSpecCustom);
         setParamUser(oscP(o, ofAdMorph), 0.f);
     }
+    // 6.0: which drawing the display edits: the custom spectrum on the side MORPH is nearer to (1 = Custom,
+    // 2 = Custom 2), else the other side's; 0 when neither side is a custom spectrum
+    int addEditTarget(int o) const {
+        const int s1 = ival(oscP(o, ofAdSpec1)), s2 = ival(oscP(o, ofAdSpec2));
+        auto cu = [](int s) { return s == kSpecCustom ? 1 : s == kSpecCustom2 ? 2 : 0; };
+        const bool near2 = values[oscP(o, ofAdMorph)] > 0.5f;
+        const int a = cu(near2 ? s2 : s1), b = cu(near2 ? s1 : s2);
+        return a ? a : b;
+    }
+    float* addEditArray(int o) { return addEditTarget(o) == 2 ? customSpec2[o] : customSpec[o]; }
+    int addEditState(int o) const { return addEditTarget(o) == 2 ? skSp2A + o : skSpA + o; }
     void startAddDraw(int o, float mx, float my) {
-        const bool editable = ival(oscP(o, ofAdSpec1)) == kSpecCustom || ival(oscP(o, ofAdSpec2)) == kSpecCustom;
+        const bool editable = addEditTarget(o) > 0;
         if (!editable) initCustomFromCurrent(o); else pushUndo(-1);
         sd = sdAddDraw; sdIndex = o; sdLastX = -1.f;
         addDrawAt(o, mx, my);
@@ -555,7 +581,7 @@
         const int a = std::min(i0, i1), b = std::max(i0, i1);
         for (int i = a; i <= b; ++i) {
             const float t = b == a ? 1.f : (float)(i - i0) / (float)(i1 - i0);
-            customSpec[o][i] = v0 + (v - v0) * std::max(0.f, std::min(1.f, t));
+            addEditArray(o)[i] = v0 + (v - v0) * std::max(0.f, std::min(1.f, t));
         }
         sdLastX = mx; sdLastY = my;
     }
@@ -642,8 +668,9 @@
         if ((ev.mod & kModifierShift) && seg > 0) { sd = sdMsegCurve; sdIndex = m; sdSub = seg; sdAux = d.c[seg]; sdLastY = my; return; }
         // add a point
         if (d.count >= drift::kMsegMaxPoints) return;
-        const float t = std::max(0.f, (mx - r.x - 8) / (r.w - 16) * total);
-        const float l = msegLevelAt(m, my);
+        msegFree = (ev.mod & kModifierAlt) != 0;
+        const float t = std::max(0.f, msegSnapT(m, (mx - r.x - 8) / (r.w - 16) * total));
+        const float l = msegSnapL(msegLevelAt(m, my));
         float acc = 0.f; int ins = d.count;
         for (int i = 1; i < d.count; ++i) { if (acc + d.t[i] > t) { ins = i; break; } acc += d.t[i]; }
         if (ins == d.count) {   // after the last point
@@ -674,12 +701,12 @@
         }
         const int i = sdSub;
         if (i < 0 || i >= d.count) return;
-        d.l[i] = msegLevelAt(m, my);
+        d.l[i] = msegSnapL(msegLevelAt(m, my));
         if (shift) d.l[i] = std::round(d.l[i] * 8.f) / 8.f;
         if (i == 0) return;
         // horizontal: move the point between its neighbours, keep later points where they are
         float tStart = 0.f; for (int k = 1; k < i; ++k) tStart += d.t[k];
-        float t = (mx - r.x - 8) / (r.w - 16) * total - tStart;
+        float t = msegSnapT(m, (mx - r.x - 8) / (r.w - 16) * total) - tStart;
         if (i == d.count - 1) d.t[i] = std::max(0.005f, std::min(60.f, t));
         else {
             const float span = d.t[i] + d.t[i + 1];

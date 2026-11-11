@@ -14,6 +14,13 @@
     bool optPredict = true, optTips = true, optLive = true, optGuard = true;
     int  optSkin = 0;
     int  optTextSize = 1;          // 5.1.5: 0 Normal, 1 Large (default), 2 Larger
+    // 6.0 MSEG grid: time step in seconds (or beats with SYNC), level divisions; 0 = off (no snapping)
+    int  optMsegGridX = 0, optMsegGridY = 0;
+    static constexpr int kMsegGridX = 8, kMsegGridY = 7;
+    static constexpr const char* kMsegGridXNames[kMsegGridX] = { "off", "1/16", "1/8", "1/4", "1/3", "1/2", "1", "2" };
+    static constexpr float kMsegGridXVal[kMsegGridX] = { 0.f, 0.0625f, 0.125f, 0.25f, 1.f / 3.f, 0.5f, 1.f, 2.f };
+    static constexpr const char* kMsegGridYNames[kMsegGridY] = { "off", "2", "3", "4", "8", "12", "16" };
+    static constexpr int kMsegGridYVal[kMsegGridY] = { 0, 2, 3, 4, 8, 12, 16 };
     static constexpr int kRefreshCount = 4;
     static constexpr int kRefreshMs[kRefreshCount] = { 33, 16, 8, 4 };
 
@@ -37,6 +44,8 @@
             else if (k == "cpuGuard") optGuard = v != 0;
             else if (k == "threads") optThreads = v;
             else if (k == "textSize") optTextSize = std::max(0, std::min(2, v));
+            else if (k == "msegGridX") optMsegGridX = std::max(0, std::min(kMsegGridX - 1, v));
+            else if (k == "msegGridY") optMsegGridY = std::max(0, std::min(kMsegGridY - 1, v));
         }
     }
     void saveOptions() const {
@@ -45,7 +54,8 @@
         std::ofstream out(drift::lib::fromU8(optionsFile()));
         out << "refresh " << optRefresh << "\nsmooth " << optSmooth << "\npredict " << (optPredict ? 1 : 0)
             << "\ntooltips " << (optTips ? 1 : 0) << "\nlive " << (optLive ? 1 : 0) << "\nskin " << optSkin << "\nscopeMode " << scopeMode << "\nscopeGain " << scopeGain << "\nscopeTime " << scopeTime
-            << "\nscopeChan " << scopeChan << "\nscopeTilt " << scopeTilt << "\nrollLen " << rollLen << "\ncpuGuard " << (optGuard ? 1 : 0) << "\nthreads " << optThreads << "\ntextSize " << optTextSize << "\n";
+            << "\nscopeChan " << scopeChan << "\nscopeTilt " << scopeTilt << "\nrollLen " << rollLen << "\ncpuGuard " << (optGuard ? 1 : 0) << "\nthreads " << optThreads << "\ntextSize " << optTextSize
+            << "\nmsegGridX " << optMsegGridX << "\nmsegGridY " << optMsegGridY << "\n";
     }
 
     // ------------------------------------------------------------------ frame timer

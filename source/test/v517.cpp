@@ -43,7 +43,7 @@ struct Case { int type; int k; const char* knob; float base, delta, scale; std::
 
 int main() {
     if (ParamRegistry::get().count() != kParamCount) { std::printf("REGISTRY MISMATCH\n"); return 1; }
-    CHECK(kModDstCount == mdCFine + 1 + 18, "18 new destinations appended after C Fine (old preset ids unchanged)");
+    CHECK(mdCT10 == mdCFine + 18, "18 Timbre 5-10 destinations follow C Fine (old preset ids unchanged)");
     CHECK(mdAT5 == mdCFine + 1 && modDstXBase(2) + 5 == mdCT10, "Timbre 5..10 block layout");
     CHECK(std::strcmp(kModDstNames[mdCT10], "C Timbre 10") == 0, "names table length matches");
 

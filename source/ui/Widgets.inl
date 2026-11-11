@@ -82,14 +82,16 @@
         restore();
     }
     // shrinks the size (never below the designed size) until the text fits maxW
-    float fitSize(const char* s, float size, float maxW) {
+    // minFrac: smallest size as a share of the designed size (6.0: narrow boxes such as the mixer's RING / SUB
+    // selectors may shrink further, so larger text sizes still fit inside them)
+    float fitSize(const char* s, float size, float maxW, float minFrac = 0.92f) {
         if (s == nullptr || s[0] == '\0' || maxW <= 0.f) return size;
         uiFontSize(size);
         Rectangle<float> bb; textBounds(0, 0, s, nullptr, bb);
         const float w = bb.getWidth();
         if (w <= maxW) return size;
         float px = textPx(size) * maxW / w;
-        const float minPx = std::min(textPx(size), size * 0.92f);
+        const float minPx = std::min(textPx(size), size * minFrac);
         if (px < minPx) px = minPx;
         return px / (textPx(size) / size);   // back to a designed size that textPx() maps to px
     }
@@ -218,11 +220,11 @@
             drawArrow(r.x + 10, r.y + r.h * 0.5f, true, hot && hoverX < r.x + 20 ? cAccent : cDim);
             drawArrow(r.x + r.w - 10, r.y + r.h * 0.5f, false, hot && hoverX > r.x + r.w - 20 ? cAccent : cDim);
             save(); scissor(r.x + 18, r.y, r.w - 36, r.h);
-            label(r.x + r.w * 0.5f, r.y + r.h * 0.5f + 0.5f, nm.c_str(), fs, cText, ALIGN_CENTER | ALIGN_MIDDLE);
+            label(r.x + r.w * 0.5f, r.y + r.h * 0.5f + 0.5f, nm.c_str(), fitSize(nm.c_str(), fs, r.w - 38, 0.62f), cText, ALIGN_CENTER | ALIGN_MIDDLE);
             restore();
         } else {
             save(); scissor(r.x + 2, r.y, r.w - 16, r.h);
-            label(r.x + 7, r.y + r.h * 0.5f + 0.5f, nm.c_str(), fs, isNone ? cFaint : cText, ALIGN_LEFT | ALIGN_MIDDLE);
+            label(r.x + 7, r.y + r.h * 0.5f + 0.5f, nm.c_str(), fitSize(nm.c_str(), fs, r.w - 22, 0.62f), isNone ? cFaint : cText, ALIGN_LEFT | ALIGN_MIDDLE);
             restore();
             beginPath(); moveTo(r.x + r.w - 12, r.y + r.h * 0.5f - 2); lineTo(r.x + r.w - 8.5f, r.y + r.h * 0.5f + 2); lineTo(r.x + r.w - 5, r.y + r.h * 0.5f - 2);
             strokeColor(hot ? cAccent : cFaint); strokeWidth(1.3f); stroke();
@@ -315,6 +317,7 @@
         restore();
         if (currentPreset >= 0 && isFavorite(presetKey(currentPreset))) label(presetBox.x + presetBox.w - 12, presetBox.cy() + 1, "★", 11, cWarm, ALIGN_CENTER | ALIGN_MIDDLE);
         button(saveBtn, "SAVE", false, hovered(saveBtn), 9.5f);
+        button(initBtn, "INIT", false, hovered(initBtn), 9.5f);
         button(abBtn[0], "A", abCur == 0, hovered(abBtn[0]), 10.f);
         button(abBtn[1], "B", abCur == 1, hovered(abBtn[1]), 10.f);
         button(undoBtn, "↶", false, hovered(undoBtn) && !undoStack.empty(), 13.f);

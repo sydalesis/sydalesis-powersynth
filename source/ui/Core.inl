@@ -22,7 +22,21 @@
         return editLayer == 1 ? k - kLayerStates : -1;
     }
     // every page talks in view indices; these route to the edited layer
-    void setParameterValue(uint32_t p, float v) { hostVals[hp(p)] = v; UI::setParameterValue(hp(p), v); }
+    void setParameterValue(uint32_t p, float v) { hostVals[hp(p)] = v; UI::setParameterValue(hp(p), v); fmTouched(p); }
+    // 6.0: touching an oscillator's FM controls gives it the 6.0 FM (PM / FM also on Additive, Physical, Spectral).
+    // Presets and sessions from before 6.0 keep their dormant FM settings silent until then.
+    void fmTouched(uint32_t p) {
+        if (p >= kLayerParams) return;
+        for (int o = 0; o < 3; ++o) {
+            if (p != oscP(o, ofFmSrc) && p != oscP(o, ofFmMode) && p != oscP(o, ofFmAmt)) continue;
+            const int bits = (int)(values[pFmV6] + 0.5f);
+            if (bits & (1 << o)) return;
+            const float nv = (float)(bits | (1 << o));
+            values[pFmV6] = nv; hostVals[hp(pFmV6)] = nv;
+            UI::editParameter(hp(pFmV6), true); UI::setParameterValue(hp(pFmV6), nv); UI::editParameter(hp(pFmV6), false);
+            return;
+        }
+    }
     void editParameter(uint32_t p, bool started) { UI::editParameter(hp(p), started); }
     void setState(const char* key, const char* value) {
         int k = stateIndexOf(key);
@@ -61,6 +75,7 @@
     std::string smpName[3];
     bool smpMissing[3] = { false, false, false };
     float customSpec[3][drift::kPartials];
+    float customSpec2[3][drift::kPartials];   // 6.0: Custom 2
     float lfoPts[kLfos][drift::kLfoShapePoints];
     drift::MsegData msegD[kMsegs];
     drift::ModalData modalD[3];
@@ -78,7 +93,7 @@
     static constexpr float kSizes[4] = { 0.75f, 0.9f, 1.0f, 1.25f };
 
     // header
-    Rect tabRect[kPages], presetPrev, presetNext, presetBox, saveBtn, abBtn[2], undoBtn, redoBtn, randBtn, qualityBox, sizeBtn[4];
+    Rect tabRect[kPages], presetPrev, presetNext, presetBox, saveBtn, initBtn, abBtn[2], undoBtn, redoBtn, randBtn, qualityBox, sizeBtn[4];
     // main page geometry
     float oscX[3] = {}, oscY = 62.f;
     Rect typeTab[3][kOscTypes], onBtn[3], engDisp[3], tableBox[3], tablePrev[3], tableNext[3];
@@ -121,7 +136,8 @@
     bool envClassic() const { return shared ? shared->envClassic.load() != 0 : envClassicUi; }
     void setEnvClassic(bool on) { envClassicUi = on; setState("envModel", on ? "classic" : ""); repaint(); }
     Rect filtDisp[2], routeBtn[3], envDisp[3], envHandle[3], macroHandle[kMacros], macroLabel[kMacros];
-    Rect lfoMini[kLfos], lfoMiniHandle[kLfos], scopeRect, routesRect, voiceRect;
+    Rect scopeRect, routesRect, voiceRect;
+    Rect msegGridX, msegGridY, msegCopyBtn, msegPasteBtn, lfoCopyBtn, lfoPasteBtn;   // 6.0 MODULATOR panel extras
     // 5.1.6 MAIN page modulator panel
     static constexpr int kMainModTabs = 12;
     Rect mainModTab[kMainModTabs], mainModHandle, mainLfoEdit, mainMsegEdit, mainRndEdit, mainModTargets;
@@ -147,6 +163,26 @@
     float sdLastX = -1.f, sdLastY = -1.f, sdAux = 0.f, msegDragTotal = 1.f;
     uint32_t lastStatePush = 0;
     int assignSrc = 0;
+    float assignFromX = 0.f, assignFromY = 0.f;   // 6.0: where the assign drag started
+    // 6.0 copy / paste between MSEGs and between LFOs (editor clipboard)
+    drift::MsegData clipMseg; bool clipMsegHave = false;
+    bool msegFree = false;   // 6.0: ALT held: place MSEG points off the grid
+    float clipLfoPts[drift::kLfoShapePoints] = {}; float clipLfoVals[kLfoFields + 1] = {}; bool clipLfoHave = false;
+    void copyLfo(int i) {
+        for (int f = 0; f < kLfoFields; ++f) clipLfoVals[f] = values[lfoP(i, f)];
+        clipLfoVals[kLfoFields] = values[pLRndPh1 + i];
+        for (int k = 0; k < drift::kLfoShapePoints; ++k) clipLfoPts[k] = lfoPts[i][k];
+        clipLfoHave = true; flash("LFO copied");
+    }
+    void pasteLfo(int i) {
+        if (!clipLfoHave) return;
+        pushUndo(-1);
+        for (int f = 0; f < kLfoFields; ++f) setParamUser(lfoP(i, f), clipLfoVals[f]);
+        setParamUser(pLRndPh1 + i, clipLfoVals[kLfoFields]);
+        for (int k = 0; k < drift::kLfoShapePoints; ++k) lfoPts[i][k] = clipLfoPts[k];
+        pushState(skLfo1 + i, drift::lfoShapeToString(lfoPts[i]), false);
+        flash("LFO pasted"); repaint();
+    }
     float resizeStartW = 0.f, resizeStartX = 0.f;
     int  fxDropSlot = -1;
     bool seqGatePaint = true;
@@ -253,6 +289,7 @@
         const std::string& v = stateValue[k];
         if (k >= skWtA && k <= skWtC) refreshDisplayTable(k - skWtA);
         else if (k >= skSpA && k <= skSpC) { if (!drift::spectrumFromString(v.c_str(), customSpec[k - skSpA])) drift::spectrumDefault(customSpec[k - skSpA]); }
+        else if (k >= skSp2A && k <= skSp2C) { if (!drift::spectrumFromString(v.c_str(), customSpec2[k - skSp2A])) drift::spectrumDefault(customSpec2[k - skSp2A]); }
         else if (k >= skSmA && k <= skSmC) refreshSample(k - skSmA);
         else if (k == skScl || k == skKbm) refreshUserScale();
         else if (k >= skLfo1 && k <= skLfo6) { if (!drift::lfoShapeFromString(v.c_str(), lfoPts[k - skLfo1])) drift::lfoShapeDefault(lfoPts[k - skLfo1], k - skLfo1); }
@@ -371,6 +408,7 @@
         if (sym.find("AdBlur") != std::string::npos && v < 0.001f) { std::snprintf(buf, n, "off"); return; }
         if (sym.find("AdPeakPos") != std::string::npos) { std::snprintf(buf, n, "H%.1f", v); return; }
         if (p >= pSeqV1 && p <= pSeqVLast && ival(pSeqMode) == 2) { std::snprintf(buf, n, "%+d st", (int)std::floor(v * 24.f + 0.5f)); return; }
+        if (p == pFDecCurve || p == pADecCurve || p == pMDecCurve) { if (v == 0.f) std::snprintf(buf, n, "exp"); else std::snprintf(buf, n, v > 0.f ? "fast %.0f%%" : "hold %.0f%%", std::fabs(v) * 100.f); return; }   // 6.0
         if (p == pFRelCurve || p == pARelCurve || p == pMRelCurve) { if (std::fabs(v) < 0.04f) std::snprintf(buf, n, "exp"); else std::snprintf(buf, n, v > 0.f ? "fast %.0f%%" : "hold %.0f%%", std::fabs(v) * 100.f); return; }
         if (p == pFEnvCurve || p == pAEnvCurve || p == pMEnvCurve) { if (std::fabs(v) < 0.04f) std::snprintf(buf, n, "soft"); else std::snprintf(buf, n, v > 0.f ? "punch %.0f%%" : "swell %.0f%%", std::fabs(v) * 100.f); return; }
         if (p == pCrBits) { std::snprintf(buf, n, "%.1f bit", v); return; }
@@ -438,9 +476,10 @@
     void buildHeader() {
         for (int i = 0; i < kPages; ++i) tabRect[i] = { 230.f + i * 45.f, 15, 43, 26 };
         presetPrev = { 596, 14, 26, 28 };
-        presetBox  = { 624, 14, 312, 28 };
-        presetNext = { 938, 14, 26, 28 };
-        saveBtn = { 972, 14, 50, 28 };
+        presetBox  = { 624, 14, 262, 28 };
+        presetNext = { 888, 14, 26, 28 };
+        saveBtn = { 920, 14, 50, 28 };
+        initBtn = { 974, 14, 48, 28 };      // 6.0
         abBtn[0] = { 1028, 14, 26, 28 }; abBtn[1] = { 1056, 14, 26, 28 };
         undoBtn = { 1090, 14, 34, 28 }; redoBtn = { 1126, 14, 34, 28 };
         randBtn = { 1166, 14, 52, 28 };

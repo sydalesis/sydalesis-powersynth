@@ -596,6 +596,12 @@ private:
             if (!drift::spectrumFromString(v.c_str(), amps)) drift::spectrumDefault(amps);
             engine->setCustomSpectrum(k - skSpA, amps);
         }
+        else if (k >= skSp2A && k <= skSp2C)   // 6.0: Custom 2
+        {
+            float amps[drift::kPartials];
+            if (!drift::spectrumFromString(v.c_str(), amps)) drift::spectrumDefault(amps);
+            engine->setCustomSpectrum(3 + k - skSp2A, amps);
+        }
         else if (k >= skSmA && k <= skSmC)
         {
             loader->request(layer * 12 + 3 + k - skSmA, v);

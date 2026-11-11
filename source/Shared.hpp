@@ -370,6 +370,32 @@ static inline DestMap destMap(int d, const int* oscType) {
     if (d == mdFxSpecMix) return { (int)pSxMix, 0, 1.f };
     if (d == mdFxSpecBlur) return { (int)pSxBlur, 0, 10.f };
     if (d == mdPitchAll) return { (int)pPitch, 0, 12.f };                 // 5.1.6: PITCH knob (amount 1 = 12 st)
+    if (d >= mdFEnvA && d <= mdMEnvR) {                                   // 6.0: envelope stages (times x16 at amount 1)
+        static const uint32_t base[3] = { pFEnvA, pAEnvA, pMEnvA };
+        const int e = (d - mdFEnvA) / 4, k = (d - mdFEnvA) % 4;
+        return k == 2 ? DestMap{ (int)(base[e] + 2), 0, 1.f } : DestMap{ (int)(base[e] + k), 1, 4.f };
+    }
+    if (d >= mdAPhase && d <= mdCPhase) return { (int)oscP(d - mdAPhase, ofPhase), 0, 1.f };
+    switch (d) {                                                          // 6.0 FX parameters
+    case mdFxPhRate: return { (int)pPhRate, 1, 3.f };
+    case mdFxPhFb: return { (int)pPhFb, 0, 1.f };
+    case mdFxChRate: return { (int)pChRate, 1, 3.f };
+    case mdFxChDepth: return { (int)pChDepth, 0, 1.f };
+    case mdFxDlTime: return { (int)pDlTime, 1, 2.f };
+    case mdFxDlFb: return { (int)pDlFb, 0, 1.f };
+    case mdFxDlDamp: return { (int)pDlDamp, 0, 1.f };
+    case mdFxFsFb: return { (int)pFsFb, 0, 1.f };
+    case mdFxTpFlutter: return { (int)pTpFlutter, 0, 1.f };
+    case mdFxTpTone: return { (int)pTpTone, 0, 1.f };
+    case mdFxRsDecay: return { (int)pRsDecay, 1, 3.f };
+    case mdFxRsBright: return { (int)pRsBright, 0, 1.f };
+    case mdFxSpSize: return { (int)pSpSize, 0, 1.f };
+    case mdFxSpDecay: return { (int)pSpDecay, 1, 3.f };
+    case mdFxSpDamp: return { (int)pSpDamp, 0, 1.f };
+    case mdFxSxShift: return { (int)pSxShift, 0, 24.f };
+    case mdFxSxTilt: return { (int)pSxTilt, 0, 1.f };
+    default: break;
+    }
     if (d >= mdAOct && d <= mdCFine) {                                    // 5.1.6: OCT / SEMI / FINE knobs
         const int o = (d - mdAOct) / 3, k = (d - mdAOct) % 3;
         static const uint32_t f[3] = { ofOct, ofSemi, ofFine };

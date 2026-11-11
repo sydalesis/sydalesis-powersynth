@@ -20,8 +20,9 @@
             { Ctl& c = selector(oscP(o, ofWtBlend), { px + 84, py + 246, 116, 20 }, true, pgMain); c.osc = o; c.vis = otWavetable; }
             { Ctl& c = knob(oscP(o, ofPos), px + 40, py + 250, 20, "POSITION", pgMain); c.osc = o; c.vis = otWavetable; }
             { Ctl& c = knob(oscP(o, ofWarpAmt), px + 236, py + 250, 15, "WARP", pgMain); c.osc = o; c.vis = otWavetable; }
-            { Ctl& c = knob(oscP(o, ofPhase), px + 294, py + 250, 13, "PHASE", pgMain); c.osc = o; c.vis = 10; }
-            { Ctl& c = tog(oscP(o, ofRetrig), { px + 328, py + 240, 50, 20 }, "RTG", pgMain); c.osc = o; c.vis = 10; }
+            { Ctl& c = knob(oscP(o, ofPhase), px + 290, py + 250, 13, "PHASE", pgMain); c.osc = o; c.vis = 10; }
+            { Ctl& c = tog(oscP(o, ofRetrig), { px + 316, py + 226, 46, 18 }, "RTG", pgMain); c.osc = o; c.vis = 10; }
+            { Ctl& c = knob(osc2P(o, o2PhaseRnd), px + 340, py + 258, 9, "PH RND", pgMain); c.osc = o; c.vis = 10; }   // 6.0
             // analog
             { Ctl& c = choice(oscP(o, ofAnWave), { px + 12, py + 38, 366, 24 }, kAnWaves, pgMain); c.osc = o; c.vis = otAnalog; }
             { Ctl& c = knob(oscP(o, ofAnPW), px + 40, py + 250, 15, "PW / MIX", pgMain); c.osc = o; c.vis = otAnalog; }
@@ -120,26 +121,19 @@
             envHandle[e] = { px + 178, py + 6, 18, 18 };
             envDisp[e] = { px + 10, py + 30, 184, 104 };
             static const char* const l[4] = { "ATTACK", "DECAY", "SUSTAIN", "RELEASE" };
-            for (int k = 0; k < 4; ++k) knob(envB[e] + k, px + 30 + k * 48.f, py + 182, 14, l[k], pgMain);
-            slider(envCurveParam(e), { px + 12, py + 216, 140, 11 }, "A CURVE", pgMain);
-            slider(envRelCurveParam(e), { px + 12, py + 234, 140, 11 }, "R CURVE", pgMain);   // 5.1.3
-            envClassicBtn[e] = { px + 160, py + 212, 34, 18 };
+            for (int k = 0; k < 4; ++k) knob(envB[e] + k, px + 30 + k * 48.f, py + 162, 14, l[k], pgMain);
+            slider(envCurveParam(e), { px + 12, py + 200, 140, 10 }, "A CURVE", pgMain);
+            slider(envDecCurveParam(e), { px + 12, py + 217, 140, 10 }, "D CURVE", pgMain);   // 6.0
+            slider(envRelCurveParam(e), { px + 12, py + 234, 140, 10 }, "R CURVE", pgMain);   // 5.1.3
+            envClassicBtn[e] = { px + 160, py + 196, 34, 18 };
         }
-        // macros + LFO strip
-        panel({ 10, 736, 520, 120 }, "MACROS", pgMain);
+        // 6.0: the 8 macros in two rows on the left; the LFO strip is gone (the MODULATOR panel edits every LFO)
+        panel({ 10, 736, 260, 256 }, "MACROS", pgMain);
         for (int m = 0; m < kMacros; ++m) {
-            const float x = 50.f + m * 63.f;
-            knob(pMacro1 + m, x, 736 + 62, 17, nullptr, pgMain);
-            macroHandle[m] = { x + 13, 736 + 36, 14, 14 };
-            macroLabel[m] = { x - 31, 736 + 92, 62, 16 };
-        }
-        panel({ 10, 862, 520, 130 }, "", pgMain);
-        for (int i = 0; i < kLfos; ++i) {
-            const float x = 18.f + i * 85.f;
-            lfoMini[i] = { x, 862 + 28, 80, 46 };
-            lfoMiniHandle[i] = { x + 64, 862 + 6, 15, 15 };
-            Ctl& c = knob(lfoP(i, lfRate), x + 40, 862 + 96, 11, nullptr, pgMain); c.visParam = (int)lfoP(i, lfSync); c.visVal = 0;
-            Ctl& d = selector(lfoP(i, lfDiv), { x + 6, 862 + 88, 68, 18 }, false, pgMain); d.visParam = (int)lfoP(i, lfSync); d.visVal = 1;
+            const float x = 45.f + (m % 4) * 62.f, y = 736.f + 78.f + (m / 4) * 112.f;
+            knob(pMacro1 + m, x, y, 18, nullptr, pgMain);
+            macroHandle[m] = { x + 14, y - 34, 14, 14 };
+            macroLabel[m] = { x - 30, y + 30, 60, 16 };
         }
         buildModPanel();
         panel({ 1062, 736, 528, 256 }, "OUTPUT", pgMain);
@@ -161,7 +155,6 @@
         for (int e = 0; e < 3; ++e) drawHandle(envHandle[e], envCol[e], envSrc[e]);
         for (int e = 0; e < 3; ++e) button(envClassicBtn[e], "3.0", envClassic(), hovered(envClassicBtn[e]), 8.5f, &cWarm);
         drawMacros(pgMain);
-        drawLfoStrip();
         drawModPanel();
         drawScope();
     }
@@ -410,8 +403,9 @@
     void additiveSpectra(int o, float* base, float* shaped) const {
         const auto& T = drift::SpectrumTable::get();
         const int s1 = ival(oscP(o, ofAdSpec1)), s2 = ival(oscP(o, ofAdSpec2));
-        const float* A = s1 == kSpecCustom ? customSpec[o] : T.a[std::min(s1, kSpecCustom - 1)];
-        const float* B = s2 == kSpecCustom ? customSpec[o] : T.a[std::min(s2, kSpecCustom - 1)];
+        auto specOf = [&](int s) -> const float* { return s == kSpecCustom ? customSpec[o] : s == kSpecCustom2 ? customSpec2[o] : T.a[std::min(s, kSpecCustom - 1)]; };
+        const float* A = specOf(s1);
+        const float* B = specOf(s2);
         const float morph = values[oscP(o, ofAdMorph)];
         const int n = ival(oscP(o, ofAdPartials));
         const float tilt = values[oscP(o, ofAdTilt)] * 1.5f, oe = values[oscP(o, ofAdOddEven)];
@@ -433,10 +427,12 @@
         for (int i = 0; i < drift::kPartials; ++i) shaped[i] /= mx;
     }
     void drawSpectrum(int o, const Rect& r) {
-        const bool editable = ival(oscP(o, ofAdSpec1)) == kSpecCustom || ival(oscP(o, ofAdSpec2)) == kSpecCustom;
+        const int tgt = addEditTarget(o);
+        const bool editable = tgt > 0;
         inset(r, hovered(r) || (sd == sdAddDraw && sdIndex == o));
         float base[drift::kPartials], shaped[drift::kPartials];
         additiveSpectra(o, base, shaped);
+        if (editable) { const float* c = tgt == 2 ? customSpec2[o] : customSpec[o]; for (int i = 0; i < drift::kPartials; ++i) base[i] = c[i]; }   // 6.0: bars = the drawing being edited
         const int nShow = std::max(16, std::min(drift::kPartials, ival(oscP(o, ofAdPartials)) <= 64 ? 64 : 128));
         const float bw = (r.w - 16) / (float)nShow;
         const float top = r.y + 18, bot = r.y + r.h - 6, hgt = bot - top;
@@ -466,7 +462,7 @@
             const float x = r.x + 8 + (i + 0.5f) * bw, db = 20.f * std::log10(a), y = bot - std::max(0.f, 1.f + db / 60.f) * hgt;
             beginPath(); circle(x, y, 1.6f); fillColor(cAccent); fill();
         }
-        label(r.x + 8, r.y + 10, editable ? "DRAW TO EDIT CUSTOM" : "DRAG TO DRAW (copies to Custom)", 7.8f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
+        label(r.x + 8, r.y + 10, editable ? (tgt == 2 ? "DRAW TO EDIT CUSTOM 2" : "DRAW TO EDIT CUSTOM") : "DRAG TO DRAW (copies to Custom)", 7.8f, editable && tgt == 2 ? cWarm : cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
         label(r.x + r.w - 8, r.y + 10, live ? "live: newest voice" : "bars base · line result", 7.8f, live ? cViolet : cFaint, ALIGN_RIGHT | ALIGN_MIDDLE);
     }
 
@@ -728,6 +724,19 @@
         }
         restore();
     }
+    // 6.0: SHAPE only acts on some filter types (Morph, dual band, comb, phaser, formant, vowel, Flanges); on the
+    // others it is dimmed. The morph target type counts while TYPE MORPH is above 0.
+    void dimUnusedFilterShapes() {
+        for (int f = 0; f < 2; ++f) {
+            const int t = ival(filtP(f, ffType)), t2 = ival(filtP(f, ffType2));
+            const bool used = drift::filterUsesShape(t) || (values[filtP(f, ffMorph)] > 0.f && drift::filterUsesShape(t2));
+            if (used || t == 0) continue;
+            for (const Ctl& c : ctls) if (c.page == pgMain && c.kind == ckKnob && c.p == filtP(f, ffShape)) {
+                const Rect r = ctlRect(c);
+                dimRect({ r.x - r.w - 7, r.y - r.w - 7, 2 * r.w + 14, 2 * r.w + 26 });
+            }
+        }
+    }
     void drawRouting() {
         static const char* const l[3] = { "SER", "PAR", "SPLIT" };
         label(456 + 29, 478 + 18, "ROUTE", 8.2f, cDim, ALIGN_CENTER | ALIGN_MIDDLE);
@@ -747,6 +756,7 @@
     }
     static uint32_t envCurveParam(int e) { return e == 0 ? pFEnvCurve : (e == 1 ? pAEnvCurve : pMEnvCurve); }
     static uint32_t envRelCurveParam(int e) { return e == 0 ? pFRelCurve : (e == 1 ? pARelCurve : pMRelCurve); }
+    static uint32_t envDecCurveParam(int e) { return e == 0 ? pFDecCurve : (e == 1 ? pADecCurve : pMDecCurve); }
     void drawEnvelope(int e, const Rect& r, uint32_t pa, const Color& col) {
         inset(r);
         float xs[5]; envGeometry(pa, r, xs);
@@ -762,7 +772,14 @@
             const float sh = cl ? std::min(1.f, 1.25f * (1.f - std::exp(-1.609f * u))) : (kc >= 0.f ? s + (1.f - (1.f - u) * (1.f - u) * (1.f - u) - s) * kc : s + (u * u * u - s) * (-kc));
             lineTo(xs[0] + (xs[1] - xs[0]) * u, bot - h * sh);
         }
-        for (int i = 1; i <= n; ++i) { const float u = (float)i / n; lineTo(xs[1] + (xs[2] - xs[1]) * u, bot - h * (sus + (1.f - sus) * std::exp(-4.f * u))); }
+        const float dk = values[envDecCurveParam(e)];   // 6.0: decay curve, drawn like the engine (60 dB over the decay)
+        for (int i = 1; i <= n; ++i) {
+            const float u = (float)i / n;
+            float g;
+            if (dk == 0.f) g = std::exp(-4.f * u);
+            else { const float hh = dk > 0.f ? 1.f - std::pow(1.f - u, 1.f + 3.f * dk) : std::pow(u, 1.f - 3.f * dk); g = (std::exp(-5.f * hh) - std::exp(-5.f)) / (1.f - std::exp(-5.f)); }
+            lineTo(xs[1] + (xs[2] - xs[1]) * u, bot - h * (sus + (1.f - sus) * g));
+        }
         lineTo(xs[3], bot - h * sus);
         const float rk = values[envRelCurveParam(e)];
         for (int i = 1; i <= n; ++i) {
@@ -844,22 +861,6 @@
         for (int s = 0; s < kModSlots; ++s) if ((ival(modSrcParam(s)) == msLfo1 + i || ival(modViaParam(s)) == msLfo1 + i) && ival(modDstParam(s)) > 0 && values[modAmtParam(s)] != 0.f) ++uses;
         return uses;
     }
-    void drawLfoStrip() {
-        for (int i = 0; i < kLfos; ++i) {
-            const Rect& r = lfoMini[i];
-            char t[8]; std::snprintf(t, sizeof(t), "LFO %d", i + 1);
-            label(r.x + 2, 862 + 14, t, 8.5f, cLfoCol[i], ALIGN_LEFT | ALIGN_MIDDLE);
-            drawHandle(lfoMiniHandle[i], cLfoCol[i], msLfo1 + i);
-            inset(r, hovered(r));
-            save(); scissor(r.x, r.y, r.w, r.h);
-            drawLfoWave(i, r, 1.3f, true);
-            restore();
-            const int u = lfoRouteCount(i);
-            char b[16]; std::snprintf(b, sizeof(b), u ? "→%d" : "", u);
-            label(r.x + r.w - 3, r.y + r.h + 7, b, 7.5f, cDim, ALIGN_RIGHT | ALIGN_MIDDLE);
-        }
-    }
-
     // ------------------------------------------------------------------ 5.1.6 modulator panel
     // Replaces the read-only "active modulation" list. Shows the modulator picked in its tabs (or the last
     // ◎ handle pressed on any page): its own controls, and every target it drives with a depth bar, a
@@ -889,36 +890,48 @@
         if (src >= msMacro1 && src <= msMacro8) return macroName[src - msMacro1];
         return kModSrcNames[std::max(0, std::min((int)kModSrcCount - 1, src))];
     }
+    // 6.0: 780 wide (the LFO strip's space): a 470-wide editor column and the targets list
     void buildModPanel() {
-        const float px = 536, py = 736;
-        panel({ px, py, 520, 256 }, "MODULATOR", pgMain);
-        mainModHandle = { px + 494, py + 6, 18, 18 };
-        for (int t = 0; t < kMainModTabs; ++t) mainModTab[t] = { px + 10 + t * 41.f, py + 30, 39, 18 };
-        const float ex = px + 10, ey = py + 54;              // editor column: 254 wide
-        mainLfoEdit = { ex, ey, 254, 70 };
-        mainMsegEdit = { ex, ey, 254, 116 };
-        mainRndEdit = { ex, ey, 254, 84 };
-        mainModTargets = { px + 276, py + 54, 234, 196 };
+        const float px = 276, py = 736;
+        panel({ px, py, 780, 256 }, "MODULATOR", pgMain);
+        mainModHandle = { px + 754, py + 6, 18, 18 };
+        for (int t = 0; t < kMainModTabs; ++t) mainModTab[t] = { px + 10 + t * 40.f, py + 30, 38, 18 };
+        const float ex = px + 10, ey = py + 54;
+        mainLfoEdit = { ex, ey, 470, 104 };
+        mainMsegEdit = { ex, ey, 470, 122 };
+        mainRndEdit = { ex, ey, 470, 96 };
+        mainModTargets = { px + 494, py + 54, 276, 196 };
         if (uiSel[ukMainMod] <= msNone) uiSel[ukMainMod] = msLfo1;
         for (int i = 0; i < kLfos; ++i) {
             auto g = [&](Ctl& c) -> Ctl& { c.uiKey = ukMainMod; c.uiVal = msLfo1 + i; return c; };
-            g(selector(lfoP(i, lfWave), { ex, ey + 76, 125, 18 }, true, pgMain));
-            g(selector(lfoP(i, lfMode), { ex + 129, ey + 76, 125, 18 }, true, pgMain));
-            g(tog(lfoP(i, lfSync), { ex, ey + 98, 52, 18 }, "SYNC", pgMain));
-            { Ctl& c = g(selector(lfoP(i, lfDiv), { ex + 56, ey + 98, 84, 18 }, false, pgMain)); c.visParam = (int)lfoP(i, lfSync); c.visVal = 1; }
-            { Ctl& c = g(knob(lfoP(i, lfRate), ex + 24, ey + 148, 12, "RATE", pgMain)); c.visParam = (int)lfoP(i, lfSync); c.visVal = 0; }
-            g(knob(lfoP(i, lfFade), ex + 84, ey + 148, 12, "FADE", pgMain));
-            g(knob(lfoP(i, lfPhase), ex + 144, ey + 148, 12, "PHASE", pgMain));
-            g(knob(lfoP(i, lfSmooth), ex + 204, ey + 148, 12, "SMOOTH", pgMain));
+            const float ry = ey + 110;
+            g(selector(lfoP(i, lfWave), { ex, ry, 120, 18 }, true, pgMain));
+            g(selector(lfoP(i, lfMode), { ex + 124, ry, 120, 18 }, true, pgMain));
+            g(tog(lfoP(i, lfSync), { ex + 250, ry, 52, 18 }, "SYNC", pgMain));
+            { Ctl& c = g(selector(lfoP(i, lfDiv), { ex + 306, ry, 84, 18 }, false, pgMain)); c.visParam = (int)lfoP(i, lfSync); c.visVal = 1; }
+            const float ky = ey + 160;
+            { Ctl& c = g(knob(lfoP(i, lfRate), ex + 30, ky, 12, "RATE", pgMain)); c.visParam = (int)lfoP(i, lfSync); c.visVal = 0; }
+            g(knob(lfoP(i, lfFade), ex + 100, ky, 12, "FADE", pgMain));
+            g(knob(lfoP(i, lfPhase), ex + 170, ky, 12, "PHASE", pgMain));
+            g(knob(pLRndPh1 + i, ex + 240, ky, 12, "RND PHASE", pgMain));
+            g(knob(lfoP(i, lfSmooth), ex + 310, ky, 12, "SMOOTH", pgMain));
         }
         for (int m = 0; m < kMsegs; ++m) {
             auto g = [&](Ctl& c) -> Ctl& { c.uiKey = ukMainMod; c.uiVal = msegSource(m); return c; };
-            g(selector(msegP(m, 0), { ex, ey + 124, 112, 18 }, true, pgMain));
-            g(tog(msegP(m, 2), { ex, ey + 146, 112, 18 }, "SYNC (beats)", pgMain));
-            g(knob(msegP(m, 1), ex + 170, ey + 146, 15, "TIME ×", pgMain));
+            const float ry = ey + 128;
+            g(selector(msegP(m, 0), { ex, ry, 112, 18 }, true, pgMain));
+            g(tog(msegP(m, 2), { ex + 116, ry, 104, 18 }, "SYNC (beats)", pgMain));
+            g(knob(msegP(m, 1), ex + 446, ry + 14, 13, "TIME ×", pgMain));
         }
+        // MSEG grid / snap and copy / paste (editor options, not sound parameters)
+        msegGridX = { ex + 30, ey + 150, 76, 18 };
+        msegGridY = { ex + 140, ey + 150, 64, 18 };
+        msegCopyBtn = { ex + 224, ey + 128, 48, 18 };
+        msegPasteBtn = { ex + 276, ey + 128, 52, 18 };
+        lfoCopyBtn = { ex + 398, ey + 110, 34, 18 };
+        lfoPasteBtn = { ex + 436, ey + 110, 34, 18 };
         for (int gi = 0; gi < 2; ++gi) {
-            Ctl& c = knob(gi == 0 ? pRndGRate : pRndVRate, ex + 36, ey + 128, 15, "RATE", pgMain);
+            Ctl& c = knob(gi == 0 ? pRndGRate : pRndVRate, ex + 36, ey + 140, 15, "RATE", pgMain);
             c.uiKey = ukMainMod; c.uiVal = gi == 0 ? msRndGlobal : msRndVoice;
         }
     }
@@ -933,7 +946,7 @@
     TgtRow tgtRow(int k) const {
         const Rect& r = mainModTargets;
         const float y = r.y + 18 + k * kTgtRowH;
-        return { { r.x + 88, y + 4, 62, kTgtRowH - 8 }, { r.x + r.w - 46, y + 2, 30, kTgtRowH - 4 }, { r.x + r.w - 14, y + 2, 14, kTgtRowH - 4 } };
+        return { { r.x + 124, y + 4, 66, kTgtRowH - 8 }, { r.x + r.w - 46, y + 2, 30, kTgtRowH - 4 }, { r.x + r.w - 14, y + 2, 14, kTgtRowH - 4 } };
     }
     int tgtRowsMax() const { return (int)((mainModTargets.h - 18) / kTgtRowH); }
     // polarity of a route as the panel shows it: true = bipolar
@@ -993,15 +1006,28 @@
                 beginPath(); circle(x, r.cy() - lfoPts[i][k] * (r.h * 0.4f), 1.2f); fillColor(withA(col, 0.4f)); fill();
             }
             drawLfoWave(i, r, 1.5f, true);
+            drawLfoSmoothing(i, r);
             restore();
             label(r.x + 5, r.y + 8, custom ? "draw to edit" : "drag in here to draw a custom shape", 7.2f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
+            button(lfoCopyBtn, "COPY", false, hovered(lfoCopyBtn), 7.6f);
+            button(lfoPasteBtn, "PASTE", false, hovered(lfoPasteBtn) && clipLfoHave, 7.6f);
+            if (!clipLfoHave) dimRect(lfoPasteBtn);
         } else if (msegOfSource(src) >= 0) {
             const int m = msegOfSource(src);
             drawMsegCard(m);
             const bool sync = values[msegP(m, 2)] >= 0.5f;
             char b[64]; std::snprintf(b, sizeof(b), "%.2f %s", msegTotal(m) * values[msegP(m, 1)], sync ? "beats" : "s");
-            label(mainMsegEdit.x + mainMsegEdit.w, mainMsegEdit.y + mainMsegEdit.h + 14, b, 8, cDim, ALIGN_RIGHT | ALIGN_MIDDLE);
-            label(mainMsegEdit.x, mainMsegEdit.y + mainMsegEdit.h + 72, "click add · drag move · double-click delete · shift-drag curve", 7.2f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
+            label(mainMsegEdit.x + mainMsegEdit.w - 6, mainMsegEdit.y + 9, b, 8, cDim, ALIGN_RIGHT | ALIGN_MIDDLE);
+            // 6.0 grid / snap, copy / paste
+            label(msegGridX.x - 4, msegGridX.cy(), "GRID", 7.6f, cFaint, ALIGN_RIGHT | ALIGN_MIDDLE);
+            miniSelect(msegGridX, kMsegGridXNames[optMsegGridX]);
+            label(msegGridY.x - 4, msegGridY.cy(), "LEVEL", 7.6f, cFaint, ALIGN_RIGHT | ALIGN_MIDDLE);
+            miniSelect(msegGridY, kMsegGridYNames[optMsegGridY]);
+            label(msegGridY.x + msegGridY.w + 8, msegGridY.cy(), optMsegGridX || optMsegGridY ? "points snap to the grid (hold ALT to place freely)" : "no snapping", 7.2f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
+            button(msegCopyBtn, "COPY", false, hovered(msegCopyBtn), 7.6f);
+            button(msegPasteBtn, "PASTE", false, hovered(msegPasteBtn) && clipMsegHave, 7.6f);
+            if (!clipMsegHave) dimRect(msegPasteBtn);
+            label(mainMsegEdit.x, mainMsegEdit.y + mainMsegEdit.h + 66, "click add · drag move · double-click delete · shift-drag curve · drag ▲ to move the sustain / loop points", 7.2f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
         } else if (src == msRndGlobal || src == msRndVoice) {
             const int g = src == msRndGlobal ? 0 : 1;
             const Rect& r = mainRndEdit;
@@ -1013,9 +1039,9 @@
                 if (k == 0) moveTo(x, y); else lineTo(x, y);
             }
             strokeColor(cRose); strokeWidth(1.4f); stroke();
-            label(r.x + 70, r.y + r.h + 36, g == 0 ? "one smooth random line shared by all voices" : "a separate random line for every voice", 7.8f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
+            label(r.x + 70, r.y + r.h + 44, g == 0 ? "one smooth random line shared by all voices" : "a separate random line for every voice (for a value held per note, use Note Random in the matrix)", 7.8f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
         } else {
-            const Rect r = { mainLfoEdit.x, mainLfoEdit.y, 254, 120 };
+            const Rect r = { mainLfoEdit.x, mainLfoEdit.y, 470, 140 };
             inset(r);
             const char* where = (src >= msMacro1 && src <= msMacro8) ? "Turn it on the MACROS panel." : (src == msFiltEnv || src == msAmpEnv || src == msModEnv) ? "Edit it on its envelope panel." : "A performance source (MIDI / MPE).";
             labelS(r.cx(), r.cy() - 8, modSrcName(src), 11, col, ALIGN_CENTER | ALIGN_MIDDLE);
@@ -1032,7 +1058,6 @@
             inset(e);
             label(e.cx(), e.cy() - 9, "No targets yet.", 10, cDim, ALIGN_CENTER | ALIGN_MIDDLE);
             label(e.cx(), e.cy() + 8, "Drag ◎ or a tab onto any knob", 8.2f, cFaint, ALIGN_CENTER | ALIGN_MIDDLE);
-            label(e.cx(), e.cy() + 21, "(OCT, SEMI, FINE and PITCH too)", 8.2f, cFaint, ALIGN_CENTER | ALIGN_MIDDLE);
         }
         const int maxRows = tgtRowsMax();
         for (int k = 0; k < (int)sl.size() && k < maxRows; ++k) {
@@ -1043,7 +1068,7 @@
             std::string dn = dstName(ival(modDstParam(s)));
             const int via = ival(modViaParam(s));
             if (via != msNone) dn += std::string(" × ") + modSrcName(via);
-            labelFit(tr.x + 2, y, dn.c_str(), 8.6f, amt != 0.f ? cText : cDim, ALIGN_LEFT | ALIGN_MIDDLE, 84);
+            labelFit(tr.x + 2, y, dn.c_str(), 8.6f, amt != 0.f ? cText : cDim, ALIGN_LEFT | ALIGN_MIDDLE, 120);
             // depth bar (drag sideways, double-click = 0)
             const Rect& b = row.bar;
             const bool hot = hovered(b) || (dragParam == (int)modAmtParam(s) && dragCtl < 0);
@@ -1071,9 +1096,47 @@
         if ((int)sl.size() > maxRows) { char b[40]; std::snprintf(b, sizeof(b), "+%d more on the MOD page", (int)sl.size() - maxRows); label(tr.x + tr.w, tr.y + tr.h + 2, b, 7.6f, cFaint, ALIGN_RIGHT | ALIGN_MIDDLE); }
     }
 
+    // 6.0: a small dropdown-looking box that cycles on click (editor options)
+    void miniSelect(const Rect& r, const char* txt) {
+        const bool hot = hovered(r);
+        beginPath(); roundedRect(r.x, r.y, r.w, r.h, 3); fillColor(hot ? shade(34.f) : cInset); fill(); strokeColor(cPanelEdge); strokeWidth(1); stroke();
+        labelFit(r.cx(), r.cy() + 0.5f, txt, 8.4f, cText, ALIGN_CENTER | ALIGN_MIDDLE, r.w - 6);
+    }
+    // 6.0: LFO SMOOTH shown on the editor: the smoothed curve (one-pole on the shape at the current rate)
+    void drawLfoSmoothing(int i, const Rect& r) {
+        const float smt = values[lfoP(i, lfSmooth)];
+        if (smt <= 0.001f) return;
+        const float rate = values[lfoP(i, lfSync)] >= 0.5f ? 1.f : std::max(0.005f, values[lfoP(i, lfRate)]);
+        const float tau = smt * smt * 0.5f + 1e-4f;
+        const int n = (int)std::max(64.f, r.w);
+        const float dt = 1.f / (rate * n);
+        const float k = 1.f - std::exp(-dt / tau);
+        float y = lfoShapeValue(i, 0.f);
+        for (int pass = 0; pass < 3; ++pass) for (int q = 0; q <= n; ++q) y += (lfoShapeValue(i, (float)q / n) - y) * k;   // settle one cycle
+        beginPath();
+        for (int q = 0; q <= n; ++q) {
+            y += (lfoShapeValue(i, (float)q / n) - y) * k;
+            const float x = r.x + 4 + (r.w - 8) * q / n, yy = r.cy() - y * (r.h * 0.4f);
+            if (q == 0) moveTo(x, yy); else lineTo(x, yy);
+        }
+        strokeColor(withA(cText, 0.55f)); strokeWidth(1.1f); stroke();
+        label(r.x + r.w - 6, r.y + r.h - 8, "smoothed", 7.f, cFaint, ALIGN_RIGHT | ALIGN_MIDDLE);
+    }
     // clicks inside the panel that are not ordinary controls (those go through the generic path)
     bool modPanelClick(float mx, float my, const MouseEvent& ev) {
         const int src = modSel();
+        if (src >= msLfo1 && src <= msLfo6) {
+            const int i = src - msLfo1;
+            if (lfoCopyBtn.contains(mx, my)) { copyLfo(i); return true; }
+            if (lfoPasteBtn.contains(mx, my)) { pasteLfo(i); return true; }
+        }
+        if (msegOfSource(src) >= 0) {
+            const int m = msegOfSource(src);
+            if (msegGridX.contains(mx, my)) { optMsegGridX = (optMsegGridX + ((ev.button == 2 || (ev.mod & kModifierShift)) ? kMsegGridX - 1 : 1)) % kMsegGridX; saveOptions(); repaint(); return true; }
+            if (msegGridY.contains(mx, my)) { optMsegGridY = (optMsegGridY + ((ev.button == 2 || (ev.mod & kModifierShift)) ? kMsegGridY - 1 : 1)) % kMsegGridY; saveOptions(); repaint(); return true; }
+            if (msegCopyBtn.contains(mx, my)) { clipMseg = msegD[m]; clipMsegHave = true; flash("MSEG copied"); return true; }
+            if (msegPasteBtn.contains(mx, my) && clipMsegHave) { pushUndo(-1); msegD[m] = clipMseg; pushState(msegStateKey(m), drift::msegToString(msegD[m]), false); flash("MSEG pasted"); repaint(); return true; }
+        }
         if (src >= msLfo1 && src <= msLfo6 && mainLfoEdit.contains(mx, my)) { startLfoDraw(src - msLfo1, mx, my); return true; }
         if (msegOfSource(src) >= 0 && mainMsegEdit.contains(mx, my)) { msegPress(msegOfSource(src), mx, my, ev); return true; }
         std::vector<int> sl; modPanelSlots(sl);

@@ -116,6 +116,8 @@
         for (uint32_t p = 0; p < kLayerParams; ++p) if (values[p] != P(p).def) { editParameter(p, true); setParam(p, P(p).def); editParameter(p, false); }   // the edited layer only
         setParamUser(oscP(0, ofType), (float)type);
         setParamUser(oscP(1, ofOn), 0.f);
+        setParamUser(pLevelComp, 1.f);      // 6.0 behaviour for new patches
+        setParamUser(pFmV6, 7.f);
         for (int k = 0; k < kLayerStates; ++k) if (!stateValue[k].empty()) pushState(k, "", false);
         if (type == otSpectral) {   // something to hear: a library drone recording
             ensureLibrary();
