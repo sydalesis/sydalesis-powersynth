@@ -613,7 +613,7 @@
     }
 
     // ------------------------------------------------------------------ wavetable / sample browser
-    enum BrowserKind { bkTable, bkSample, bkImport, bkTuning, bkAnalyse, bkSpec, bkSpecX };
+    enum BrowserKind { bkTable, bkSample, bkImport, bkTuning, bkAnalyse, bkSpec, bkSpecX, bkFolderWt, bkFolderSmp };   // 6.0: folder pickers (SETUP)
     bool sampleKind() const { return browserKind == bkSample || browserKind == bkSpec || browserKind == bkSpecX; }
     int  kindKey(int kind) const { return kind == bkSample ? skSmA : (kind == bkSpec ? skSrcA : (kind == bkSpecX ? skXsrcA : skWtA)); }
     int browserKind = bkTable;
@@ -797,6 +797,19 @@
         if (filename == nullptr) return;
         if (browserKind == bkTuning) { tuningFileSelected(filename); browserKind = bkTable; repaint(); return; }
         if (browserKind == bkAnalyse) { analyseSelected(filename); browserKind = bkTable; repaint(); return; }
+        if (browserKind == bkFolderWt || browserKind == bkFolderSmp) {   // 6.0: the folder of the picked file
+            const bool smp = browserKind == bkFolderSmp;
+            browserKind = bkTable;
+            if (!filename || !*filename) { repaint(); return; }
+            const std::string dir = drift::lib::u8(drift::lib::fromU8(filename).parent_path());
+            auto v = drift::lib::extraFolders(smp);
+            if (std::find(v.begin(), v.end(), dir) == v.end()) v.push_back(dir);
+            drift::lib::setExtraFolders(smp, v);
+            folderCacheAt = -10.0;
+            ensureLibrary(true);
+            flash(("Added folder: " + dir).c_str());
+            repaint(); return;
+        }
         if (browserKind == bkImport) { if (importTarget >= 0) importSpectrum(importTarget, filename); browserKind = bkTable; repaint(); return; }
         if (browserTarget < 0) return;
         selectFileKind(browserTarget, filename, browserKind);

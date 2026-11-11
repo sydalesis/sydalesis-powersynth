@@ -77,7 +77,30 @@ struct Entry {
 
 inline std::vector<Entry> scanRoots(const std::vector<Root>& rs);
 inline std::vector<Entry> scan() { return scanRoots(roots()); }
-inline std::vector<Entry> scanSamples() { return scanRoots({ { "Samples", samplesDir() } }); }
+// 6.0: extra folders kept in <data>/folders.txt (wavetables) and <data>/sample-folders.txt (grain / spectral
+// samples, e.g. on an external drive), one absolute path per line; edited on the SETUP page
+inline std::vector<std::string> extraFolders(bool samples) {
+    std::vector<std::string> out;
+    std::ifstream in(fromU8(dataDir()) / (samples ? "sample-folders.txt" : "folders.txt"));
+    std::string line;
+    while (std::getline(in, line)) {
+        while (!line.empty() && (line.back() == '\r' || line.back() == ' ')) line.pop_back();
+        if (!line.empty() && line[0] != '#') out.push_back(line);
+    }
+    return out;
+}
+inline void setExtraFolders(bool samples, const std::vector<std::string>& v) {
+    std::error_code ec;
+    fs::create_directories(fromU8(dataDir()), ec);
+    std::ofstream out(fromU8(dataDir()) / (samples ? "sample-folders.txt" : "folders.txt"));
+    for (const auto& s : v) out << s << "\n";
+}
+inline std::vector<Entry> scanSamples() {
+    std::vector<Root> r = { { "Samples", samplesDir() } };
+    std::error_code ec;
+    for (const auto& f : extraFolders(true)) if (fs::is_directory(fromU8(f), ec)) r.push_back({ u8(fromU8(f).filename()), f });
+    return scanRoots(r);
+}
 inline std::vector<Entry> scanRoots(const std::vector<Root>& rs) {
     std::vector<Entry> out;
     for (const Root& root : rs) {

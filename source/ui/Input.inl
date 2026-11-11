@@ -245,6 +245,7 @@
         if (sd == sdXY) { xyRelease(); return true; }
         if (sd == sdLyFader) { lyFaderRelease(); return true; }
         if (sd == sdPbBar) { sd = sdNone; repaint(); return true; }
+        if (motDrawing) { motDrawing = false; pushState(skMotion, stateValue[skMotion], false); repaint(); return true; }   // 6.0 lane drawing
         if (sd == sdAssign) { sd = sdNone; assignTo(assignSrc, mx, my); repaint(); return true; }
         if (sd == sdAddDraw) { pushState(addEditState(sdIndex), drift::spectrumToString(addEditArray(sdIndex)), false); sd = sdNone; return true; }
         if (sd == sdLfoDraw) { pushState(skLfo1 + sdIndex, drift::lfoShapeToString(lfoPts[sdIndex]), false); sd = sdNone; return true; }
@@ -291,6 +292,7 @@
         if (sd == sdXY) { xyDrag(mx, my); return true; }
         if (sd == sdLyFader) { lyFaderSet(sdIndex, mx); return true; }
         if (sd == sdPbBar) { pbBarDrag(my); return true; }
+        if (motDrawing) { motionDrawAt(mx, my); return true; }
         if (sd == sdAddDraw) { addDrawAt(sdIndex, mx, my); throttledState(addEditState(sdIndex), [&] { return drift::spectrumToString(addEditArray(sdIndex)); }); repaint(); return true; }
         if (sd == sdLfoDraw) { lfoDrawAt(sdIndex, mx, my); throttledState(skLfo1 + sdIndex, [&] { return drift::lfoShapeToString(lfoPts[sdIndex]); }); repaint(); return true; }
         if (sd == sdMsegPoint || sd == sdMsegLoop || sd == sdMsegCurve) { msegFree = (ev.mod & kModifierAlt) != 0; msegDrag(sdIndex, mx, my, (ev.mod & kModifierShift) != 0); throttledState(msegStateKey(sdIndex), [&] { return drift::msegToString(msegD[sdIndex]); }); repaint(); return true; }

@@ -528,7 +528,7 @@ public:
     void setMotion(const MotionData& d) override {
         const int w = 1 - motionIdx.load(std::memory_order_acquire);
         MotionData& m = *motion[w];
-        m.seconds = d.seconds; m.frames = d.frames; m.recording = d.recording;
+        m.seconds = d.seconds; m.frames = d.frames; m.recording = d.recording; m.recMask = d.recMask;
         for (int k = 0; k < kMacros; ++k) { m.has[k] = d.has[k]; if (d.has[k] && d.frames > 0) std::memcpy(m.v[k], d.v[k], sizeof(float) * (size_t)d.frames); }
         motionIdx.store(w, std::memory_order_release);
     }
@@ -2852,7 +2852,9 @@ private:
         for (bool& l : macroLane) l = false;
         const int mode = iparam(pMoMode, 0, 3);
         const MotionData& md = *motion[motionIdx.load(std::memory_order_acquire)];
-        if (mode != 0 && md.frames > 1 && !md.recording && md.seconds > 0.f) {
+        // 6.0: while overdubbing only the recorded macros pause; the other lanes keep playing in time
+        const int recMask = md.recording ? md.recMask : 0;
+        if (mode != 0 && md.frames > 1 && recMask != 0xFF && md.seconds > 0.f) {
             const double len = md.seconds, sp = p[pMoSpeed];
             if (mode == 3) { if (hostPlaying) motT = beat * 60.0 / hostBpm * sp; }
             else { if (mode == 2 && motRestart) motT = 0.0; motT += (double)dt * sp; }
@@ -2861,7 +2863,7 @@ private:
             int i0 = (int)fpos; if (i0 >= md.frames) i0 = md.frames - 1;
             const int i1 = (i0 + 1) % md.frames;
             const float fr = fpos - (float)i0;
-            for (int m = 0; m < kMacros; ++m) if (md.has[m]) { base[m] = md.v[m][i0] + (md.v[m][i1] - md.v[m][i0]) * fr; macroLane[m] = true; }
+            for (int m = 0; m < kMacros; ++m) if (md.has[m] && !(recMask & (1 << m))) { base[m] = md.v[m][i0] + (md.v[m][i1] - md.v[m][i0]) * fr; macroLane[m] = true; }
         }
         motRestart = false;
         // 5.1.1: XY pad auto-motion moves the pad's two macros around where the pad sits

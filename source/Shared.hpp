@@ -179,10 +179,12 @@ struct MotionData {
     int frames = 0;               // samples per lane (seconds * kMotionRate)
     bool has[kMacros] = {};
     bool recording = false;       // the editor is recording: playback paused
+    int recMask = 0xFF;           // 6.0 overdub: only these macros pause (the other lanes keep playing)
     float v[kMacros][kMotionMax];
 };
 static inline std::string motionToString(const MotionData& d) {
     if (d.frames <= 0) return d.recording ? "rec" : "";
+    char mb[16]; std::snprintf(mb, sizeof mb, ";rec%d", d.recMask);
     std::string s; char b[24];
     std::snprintf(b, sizeof(b), "%.3f", d.seconds); s = b;
     for (int m = 0; m < kMacros; ++m) {
@@ -190,11 +192,11 @@ static inline std::string motionToString(const MotionData& d) {
         std::snprintf(b, sizeof(b), ";%d:", m); s += b;
         for (int i = 0; i < d.frames; ++i) { std::snprintf(b, sizeof(b), i ? ",%d" : "%d", (int)(d.v[m][i] * 1000.f + 0.5f)); s += b; }
     }
-    if (d.recording) s += ";rec";
+    if (d.recording) s += d.recMask == 0xFF ? std::string(";rec") : std::string(mb);   // 6.0: ";rec<mask>" while overdubbing
     return s;
 }
 static inline bool motionFromString(const char* s, MotionData& d) {
-    d.seconds = 0.f; d.frames = 0; d.recording = false;
+    d.seconds = 0.f; d.frames = 0; d.recording = false; d.recMask = 0xFF;
     for (bool& h : d.has) h = false;
     if (!s || !*s) return false;
     if (std::strncmp(s, "rec", 3) == 0) { d.recording = true; return true; }
@@ -208,7 +210,11 @@ static inline bool motionFromString(const char* s, MotionData& d) {
     s = end;
     while (*s == ';') {
         ++s;
-        if (std::strncmp(s, "rec", 3) == 0) { d.recording = true; s += 3; continue; }
+        if (std::strncmp(s, "rec", 3) == 0) {
+            d.recording = true; s += 3;
+            if (*s >= '0' && *s <= '9') { d.recMask = (int)std::strtol(s, &end, 10) & 0xFF; s = end; }
+            continue;
+        }
         const long m = std::strtol(s, &end, 10);
         if (end == s || *end != ':') break;
         s = end + 1;

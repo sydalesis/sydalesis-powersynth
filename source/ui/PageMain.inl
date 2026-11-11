@@ -73,6 +73,9 @@
             { Ctl& c = selector(oscP(o, ofFmMode), { px + 112, py + 306, 58, 20 }, false, pgMain); c.osc = o; }
             { Ctl& c = slider(oscP(o, ofFmAmt), { px + 176, py + 306, 112, 20 }, nullptr, pgMain); c.osc = o; }
             { Ctl& c = selector(oscP(o, ofSyncSrc), { px + 320, py + 306, 58, 20 }, false, pgMain); c.osc = o; c.vis = 10; }
+            // 6.0: Granular / Spectral level compensation (one switch per layer, shown on both engines)
+            { Ctl& c = tog(pLevelComp, { px + 296, py + 306, 82, 20 }, "AUTO LEVEL", pgMain); c.osc = o; c.vis = otGranular; }
+            { Ctl& c = tog(pLevelComp, { px + 296, py + 306, 82, 20 }, "AUTO LEVEL", pgMain); c.osc = o; c.vis = otSpectral; }
             // common row
             const uint32_t cf[8] = { ofLevel, ofPan, ofOct, ofSemi, ofFine, ofVoices, ofDetune, ofUniWidth };
             static const char* const cl[8] = { "LEVEL", "PAN", "OCT", "SEMI", "FINE", "VOICES", "DETUNE", "WIDTH" };

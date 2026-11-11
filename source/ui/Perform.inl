@@ -16,6 +16,13 @@
     std::vector<float> motRecV;                     // kMacros values per sample
     float motRecV0[kMacros] = {};
     std::string motPrev;
+    // 6.0 overdub: armed lanes record over the running loop while the other lanes keep playing;
+    // motRecPh = loop position (engine time) of each sample. Lane drawing edits motDrawLane.
+    bool motArm[kMacros] = {};
+    bool motOverdub = false;
+    int motMask = 0, motDrawLane = 0;
+    std::vector<float> motRecPh;
+    bool motDrawing = false; float motDrawLastX = -1.f, motDrawLastY = 0.f;
 
     void perfFromString(const std::string& v) {
         int a[4];
@@ -102,8 +109,12 @@
                     const float x = r.x + 2 + (r.w - 4) * std::fmod(tel.motionT, tel.motionLen) / tel.motionLen;
                     beginPath(); moveTo(x, r.y + 1); lineTo(x, r.y + r.h - 1); strokeColor(cText); strokeWidth(1); stroke();
                 }
-            } else label(r.cx(), r.cy(), motRec ? "recording…" : "no lane", 7.5f, motRec ? cWarn : cFaint, ALIGN_CENTER | ALIGN_MIDDLE);
+            } else label(r.cx(), r.cy(), motRec && (!motOverdub || (motMask & (1 << m))) ? "recording…" : "no lane", 7.5f, motRec ? cWarn : cFaint, ALIGN_CENTER | ALIGN_MIDDLE);
+            // 6.0: armed for overdub (red edge) / lane being drawn (accent edge)
+            if (motArm[m]) { beginPath(); roundedRect(r.x - 1, r.y - 1, r.w + 2, r.h + 2, 4); strokeColor(cWarn); strokeWidth(1.6f); stroke(); }
+            if (m == motDrawLane) { beginPath(); circle(r.x - 7, r.cy(), 2.5f); fillColor(cAccent); fill(); }
         }
+        label(pfMacroCard.x + 14, pfMacroCard.y + pfMacroCard.h - 30, "click a lane strip to ARM it for overdub (and to pick it for drawing)", 8, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
         if (layerSecond()) label(pfMacroCard.x + pfMacroCard.w - 14, pfMacroCard.y + 19, "layer 2's macros", 8.5f, cViolet, ALIGN_RIGHT | ALIGN_MIDDLE);
         label(pfMacroCard.x + 14, pfMacroCard.y + pfMacroCard.h - 14, "violet ring = the value a scene or motion lane is playing · route macros on the MOD page", 8, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
 
@@ -243,9 +254,10 @@
             } else {
                 label(r.cx(), r.cy() - 10, "No motion recorded", 11, cFaint, ALIGN_CENTER | ALIGN_MIDDLE);
                 label(r.cx(), r.cy() + 12, "REC captures every macro you move until STOP; playback loops it and the lane plays that macro", 8.5f, cFaint, ALIGN_CENTER | ALIGN_MIDDLE);
+                label(r.cx(), r.cy() + 30, "or click a macro's lane strip above and draw its lane in here", 8.5f, cFaint, ALIGN_CENTER | ALIGN_MIDDLE);
             }
             label(r.x, r.y + r.h + 16, "Loop: free-running · Note: restarts when you play after silence · Host: follows the song position", 8.5f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
-            label(r.x, r.y + r.h + 34, "A lane overrides its macro's knob while playback is on; recording replaces all lanes.", 8.5f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
+            label(r.x, r.y + r.h + 34, "A lane overrides its macro's knob. With lanes ARMED, REC overdubs only them while the others play; none armed: REC replaces all. Drag in here to draw the picked lane.", 8.5f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
         }
     }
     bool layerSecond() const { return editLayer == 1; }
@@ -304,6 +316,8 @@
         if (pfStoreBtn.contains(mx, my)) { pfStoreMode = !pfStoreMode; repaint(); return true; }
         if (pfClearScenes.contains(mx, my)) { pushState(skScenes, drift::scenesToString(drift::SceneData())); pfStoreMode = false; flash("Scenes cleared"); return true; }
         if (pfRecBtn.contains(mx, my)) { if (motRec) stopMotionRec(); else startMotionRec(); return true; }
+        for (int m = 0; m < kMacros; ++m) if (pfLane[m].contains(mx, my) && !motRec) { motArm[m] = !motArm[m]; motDrawLane = m; repaint(); return true; }
+        if (pfTimeline.contains(mx, my) && !motRec) { pushUndo(-1); motDrawing = true; motDrawLastX = -1.f; motionDrawAt(mx, my); return true; }
         if (pfClearMotion.contains(mx, my)) { if (motRec) { motRec = false; } pushState(skMotion, ""); flash("Motion lanes cleared"); return true; }
         return false;
     }
@@ -325,18 +339,80 @@
     void startMotionRec() {
         motPrev = stateValue[skMotion];
         motRec = true; motRecStart = secNow();
-        motRecT.clear(); motRecV.clear();
+        motRecT.clear(); motRecV.clear(); motRecPh.clear();
         for (int m = 0; m < kMacros; ++m) motRecV0[m] = values[pMacro1 + m];
-        pushState(skMotion, "rec", false);     // the engine pauses playback: the knobs are heard while recording
+        motMask = 0; for (int m = 0; m < kMacros; ++m) if (motArm[m]) motMask |= 1 << m;
+        motOverdub = motMask != 0 && motionD->frames > 1 && ival(pMoMode) != 0;
+        if (motOverdub) {
+            // 6.0: the armed macros pause (their knobs are heard), every other lane keeps playing
+            drift::MotionData* d = new drift::MotionData(*motionD);
+            d->recording = true; d->recMask = motMask;
+            pushState(skMotion, drift::motionToString(*d), false);
+            delete d;
+        } else pushState(skMotion, "rec", false);     // the engine pauses playback: the knobs are heard while recording
         perfSample(0.f);
     }
     void perfSample(float t) {
         motRecT.push_back(t);
+        motRecPh.push_back(shared && tel.motionLen > 0.f ? std::fmod(tel.motionT, tel.motionLen) : 0.f);
         for (int m = 0; m < kMacros; ++m) motRecV.push_back(values[pMacro1 + m]);
+    }
+    // 6.0: overdub: write the armed macros that moved into the existing loop at the positions they were played
+    void stopOverdub() {
+        const size_t n = motRecT.size();
+        std::unique_ptr<drift::MotionData> d(new drift::MotionData(*motionD));
+        d->recording = false; d->recMask = 0xFF;
+        const int N = d->frames;
+        bool any = false;
+        for (int m = 0; m < kMacros; ++m) {
+            if (!(motMask & (1 << m))) continue;
+            size_t i0 = n;
+            for (size_t i = 0; i < n; ++i) if (std::fabs(motRecV[i * kMacros + m] - motRecV0[m]) > 0.004f) { i0 = i > 0 ? i - 1 : 0; break; }
+            if (i0 >= n) continue;
+            any = true;
+            if (!d->has[m]) { for (int f = 0; f < N; ++f) d->v[m][f] = motRecV0[m]; d->has[m] = true; }
+            const float fpS = (float)N / std::max(0.01f, d->seconds);
+            for (size_t i = i0; i + 1 < n; ++i) {
+                float fa = motRecPh[i] * fpS, fb = motRecPh[i + 1] * fpS;
+                if (fb < fa - 0.5f * N) fb += (float)N;          // wrapped round the loop end
+                if (fb < fa) fb = fa;
+                const float va = motRecV[i * kMacros + m], vb = motRecV[(i + 1) * kMacros + m];
+                for (int f = (int)std::ceil(fa); f <= (int)fb; ++f) {
+                    const float u = fb > fa ? ((float)f - fa) / (fb - fa) : 1.f;
+                    d->v[m][((f % N) + N) % N] = va + (vb - va) * u;
+                }
+            }
+        }
+        if (!any) { pushState(skMotion, motPrev, false); flash("Nothing moved on the armed lanes: kept as they were"); return; }
+        pushState(skMotion, drift::motionToString(*d));
+        flash("Overdub recorded");
+    }
+    // 6.0: draw the picked lane in the timeline (creates an 8 s loop when there is none)
+    void motionDrawAt(float mx, float my) {
+        const Rect& r = pfTimeline;
+        std::unique_ptr<drift::MotionData> d(new drift::MotionData(*motionD));
+        d->recording = false; d->recMask = 0xFF;
+        if (d->frames < 2) { d->seconds = 8.f; d->frames = 8 * drift::kMotionRate; for (bool& h : d->has) h = false; }
+        const int m = motDrawLane, N = d->frames;
+        if (!d->has[m]) { for (int f = 0; f < N; ++f) d->v[m][f] = values[pMacro1 + m]; d->has[m] = true; }
+        auto fOf = [&](float x) { return std::max(0, std::min(N - 1, (int)std::round((x - r.x - 8) / (r.w - 16) * (N - 1)))); };
+        auto vOf = [&](float y) { return std::max(0.f, std::min(1.f, (r.y + r.h - 12 - y) / (r.h - 40))); };
+        const int f1 = fOf(mx); const float v1 = vOf(my);
+        const int f0 = motDrawLastX < 0.f ? f1 : fOf(motDrawLastX); const float v0 = motDrawLastX < 0.f ? v1 : vOf(motDrawLastY);
+        const int a = std::min(f0, f1), b = std::max(f0, f1);
+        for (int f = a; f <= b; ++f) d->v[m][f] = b == a ? v1 : v0 + (v1 - v0) * (float)(f - f0) / (float)(f1 - f0);
+        motDrawLastX = mx; motDrawLastY = my;
+        const std::string sv = drift::motionToString(*d);
+        drift::motionFromString(sv.c_str(), *motionD);
+        throttledState(skMotion, [&] { return sv; });
+        stateValue[skMotion] = sv;
+        if (ival(pMoMode) == 0) setParamUser(pMoMode, 1.f);
+        repaint();
     }
     void stopMotionRec() {
         if (!motRec) return;
         motRec = false;
+        if (motOverdub) { perfSample(std::min((float)drift::kMotionMaxSec, (float)(secNow() - motRecStart))); stopOverdub(); return; }
         const float stopT = std::min((float)drift::kMotionMaxSec, (float)(secNow() - motRecStart));
         perfSample(stopT);
         const size_t n = motRecT.size();

@@ -317,7 +317,7 @@
             labelS(c.x + 200, y, v, 9.5f, col, ALIGN_LEFT | ALIGN_MIDDLE);
             y += 24;
         };
-        line("Version", "Sydalesis 5.1.7  (formerly Driftfield · 6,050 presets)", cText);
+        line("Version", "Sydalesis 6.0  (formerly Driftfield)", cText);
         line("Options", "global for every instance, saved in " + driftDir() + "/options-v3.txt", cDim);
         std::snprintf(b, sizeof(b), "%.0f fps measured  (timer %s)", fpsMeasured, tickerOn ? "active" : "unavailable, using host idle");
         line("UI frame rate", b, cText);
@@ -334,8 +334,58 @@
         line("MIDI learn", b, cText);
         y += 10;
         label(c.x + 24, y, "Drop .wav files into the Wavetables or Samples folders (sub-folders become categories). They show up in the browsers after reopening the editor.", 9, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
+        drawLibraryFolders();
+    }
+    // 6.0: extra library folders (wavetables / samples, e.g. on another drive)
+    Rect folderAdd[2], folderDel[2][6];
+    std::vector<std::string> folderCache[2]; double folderCacheAt = -10.0;   // re-read at most once a second
+    const std::vector<std::string>& foldersCached(int k) {
+        if (secNow() - folderCacheAt > 1.0) { folderCache[0] = drift::lib::extraFolders(false); folderCache[1] = drift::lib::extraFolders(true); folderCacheAt = secNow(); }
+        return folderCache[k];
+    }
+    void drawLibraryFolders() {
+        const Rect& c = setupInfoCard;
+        const float x = c.x + 1000, w = c.w - 1016;
+        float y = c.y + 52;
+        for (int k = 0; k < 2; ++k) {
+            letterSp(1.f); label(x, y, k ? "SAMPLE FOLDERS (grain / spectral)" : "WAVETABLE FOLDERS", 8.5f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE); letterSp(0.f);
+            folderAdd[k] = { x + w - 110, y - 11, 110, 22 };
+            button(folderAdd[k], "+ ADD FOLDER", false, hovered(folderAdd[k]), 8.5f);
+            y += 22;
+            const auto& v = foldersCached(k);
+            if (v.empty()) { label(x + 6, y, k ? "none (only " "Documents/Sydalesis/Samples)" : "none (only Documents/Sydalesis/Wavetables)", 8.5f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE); y += 20; }
+            for (int i = 0; i < (int)v.size() && i < 6; ++i) {
+                std::error_code ec;
+                const bool ok = std::filesystem::is_directory(drift::lib::fromU8(v[i]), ec);
+                save(); scissor(x, y - 9, w - 30, 18);
+                labelS(x + 6, y, v[i], 8.8f, ok ? cAccent : cWarn, ALIGN_LEFT | ALIGN_MIDDLE);
+                restore();
+                folderDel[k][i] = { x + w - 22, y - 9, 18, 18 };
+                label(folderDel[k][i].cx(), folderDel[k][i].cy(), "✕", 9, hovered(folderDel[k][i]) ? cWarn : cFaint, ALIGN_CENTER | ALIGN_MIDDLE);
+                y += 20;
+            }
+            y += 16;
+        }
+        label(x, y, "ADD: pick any .wav inside the folder. Missing drives show in orange.", 8, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
+    }
+    bool libraryFolderClick(float mx, float my) {
+        for (int k = 0; k < 2; ++k) {
+            if (folderAdd[k].contains(mx, my)) {
+                browserKind = k ? bkFolderSmp : bkFolderWt;
+                FileBrowserOptions opts;
+                opts.title = k ? "Pick any .wav in the sample folder to add" : "Pick any .wav in the wavetable folder to add";
+                openFileBrowser(opts);
+                return true;
+            }
+            auto v = drift::lib::extraFolders(k == 1);
+            for (int i = 0; i < (int)v.size() && i < 6; ++i) if (folderDel[k][i].contains(mx, my)) {
+                v.erase(v.begin() + i); drift::lib::setExtraFolders(k == 1, v); folderCacheAt = -10.0; ensureLibrary(true); repaint(); return true;
+            }
+        }
+        return false;
     }
     bool setupClick(float mx, float my) {
+        if (libraryFolderClick(mx, my)) return true;
         for (int i = 0; i < kSkinCount; ++i) if (skinTile[i].contains(mx, my)) { optSkin = i; applySkin(i); saveOptions(); repaint(); return true; }
         for (int i = 0; i < 3; ++i) if (optTextBtn[i].contains(mx, my)) { optTextSize = i; saveOptions(); repaint(); return true; }
         for (int i = 0; i < kRefreshCount; ++i) if (optRefreshBtn[i].contains(mx, my)) { optRefresh = i; saveOptions(); startTicker(); repaint(); return true; }
