@@ -14,6 +14,7 @@
 #include "FmAlgos.hpp"
 // 6.0: open a web page in the default browser (Platform.cpp)
 void driftPlatformOpenUrl(const char* url);
+void driftPlatformTextFocus(uintptr_t nativeView, bool take);
 static void openUrl(const char* url) { driftPlatformOpenUrl(url); }
 static const char* const kBandcampUrl = "https://sydalesis.bandcamp.com";
 static const char* const kItchUrl = "https://sydalesis.itch.io/";

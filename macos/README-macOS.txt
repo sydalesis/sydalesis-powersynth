@@ -1,4 +1,4 @@
-SYDALESIS 6 (6.0.0) FOR macOS
+SYDALESIS 6 (6.0.1) FOR macOS
 =============================
 Synth page: https://sydalesis.itch.io/  ·  Music: https://sydalesis.bandcamp.com
 

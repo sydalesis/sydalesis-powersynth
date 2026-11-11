@@ -2,7 +2,18 @@
 // (included inside class DriftfieldUI)
 
     double drawAcc = 0.0; int drawN = 0;
+    // 6.0.1: keyboard focus follows the text fields (save name, preset search, macro names)
+    int textFocusHeld = ttNone;
+    void syncTextFocus() {
+        if (textTarget == textFocusHeld) return;
+        const bool take = textTarget != ttNone;
+        if (take) getWindow().focus();
+        driftPlatformTextFocus(getWindow().getNativeWindowHandle(), take);
+        textFocusHeld = textTarget;
+        lastCharTime = 0.0;
+    }
     void onNanoDisplay() override {
+        syncTextFocus();
         const double t0 = secNow();
         onNanoDisplayImpl();
         drawAcc += secNow() - t0; if (++drawN == 60) { if (std::getenv("DF_DRAWPROF")) std::fprintf(stderr, "draw %.2f ms page %d\n", drawAcc / 60 * 1000.0, page); drawAcc = 0; drawN = 0; }
@@ -397,6 +408,9 @@
             if (ev.key == kKeyEscape) { textTarget = ttNone; saveOpen = false; repaint(); return true; }
             if (ev.key == '\r' || ev.key == '\n') { if (textTarget == ttPresetName) doSave(); else commitText(); repaint(); return true; }
             if (ev.key == '\b' || ev.key == 127) {
+                const double now = nowSeconds();
+                if (now - lastBackTime < 0.012) return true;      // the same Backspace through two paths
+                lastBackTime = now;
                 std::string& b = textTarget == ttPresetName ? saveName : (textTarget == ttSearch ? searchText : textBuf);
                 if (!b.empty()) { do b.pop_back(); while (!b.empty() && ((unsigned char)b.back() & 0xC0) == 0x80); }
                 if (textTarget == ttSearch) pbScroll = 0.f;
@@ -411,9 +425,17 @@
         if ((ev.mod & kModifierControl) && (ev.key == 'y' || ev.key == 'Y')) { redo(); return true; }
         return false;
     }
+    uint lastChar = 0; bool lastCharNative = false; double lastCharTime = 0.0, lastBackTime = 0.0;
+    static double nowSeconds() { return std::chrono::duration<double>(std::chrono::steady_clock::now().time_since_epoch()).count(); }
     bool onCharacterInput(const CharacterInputEvent& ev) override {
         if (textTarget == ttNone) return false;
         std::string& b = textTarget == ttPresetName ? saveName : (textTarget == ttSearch ? searchText : textBuf);
+        {   // 6.0.1: with the focus taken, some hosts deliver a key twice (their onKeyDown and the window's WM_CHAR)
+            const double now = nowSeconds();
+            const bool native = ev.string[0] != '\0';
+            if (ev.character == lastChar && native != lastCharNative && now - lastCharTime < 0.04) { lastCharTime = now; return true; }
+            lastChar = ev.character; lastCharNative = native; lastCharTime = now;
+        }
         if (ev.character >= 32 && ev.character != 127 && b.size() < 48) {
             // 5.1.4: hosts that pass keys through VST3 onKeyDown (Studio One) arrive with the character code but an
             // empty string, so typing did nothing; build the UTF-8 text from the code point in that case

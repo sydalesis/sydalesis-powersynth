@@ -1,9 +1,15 @@
-SYDALESIS 6  (6.0.0)
+SYDALESIS 6  (6.0.1)
 ====================
 Synth page: https://sydalesis.itch.io/  ·  Music: https://sydalesis.bandcamp.com
 
 The plug-in now shows up in hosts as "Sydalesis 6". It is the same plug-in (same ids), so
 sessions made with Sydalesis 5.x open it as before. The logo opens the synth's page (itch.io); SETUP links to it and to the music on Bandcamp.
+
+6.0.1
+- Typing in the Save dialog, the preset search and macro names works in hosts that keep the keyboard
+  (Studio One): the editor takes the keyboard focus while a text field is active and gives it back after.
+
+6.0.0
 
 New oscillator engine: FM
 - Seventh engine tab on every oscillator. Six operators, the 32 classic six-operator algorithms

@@ -2,6 +2,7 @@
 #include <string>
 #include <filesystem>
 #include <cstdlib>
+#include <cstdint>
 #ifdef _WIN32
  #ifndef NOMINMAX
   #define NOMINMAX
@@ -10,6 +11,21 @@
  #include <shlobj.h>
  #include <shellapi.h>
 #endif
+
+// 6.0.1: text entry in hosts that keep the keyboard (Studio One): the editor window only receives WM_CHAR while
+// it has the Win32 keyboard focus, and clicking a plug-in window does not give it that focus. Take it while a
+// text field is active and hand it back to the host window afterwards (so the host's shortcuts work again).
+void driftPlatformTextFocus(uintptr_t nativeView, bool take)
+{
+#if defined(_WIN32)
+    HWND h = reinterpret_cast<HWND>(nativeView);
+    if (h == nullptr) return;
+    if (take) { SetFocus(h); return; }
+    if (GetFocus() == h) { HWND p = GetParent(h); if (p != nullptr) SetFocus(p); }
+#else
+    (void)nativeView; (void)take;     // macOS / Linux: the view becomes first responder on click (Window::focus)
+#endif
+}
 
 // 6.0: open a web page in the default browser (the synth's page / Bandcamp links)
 void driftPlatformOpenUrl(const char* url)

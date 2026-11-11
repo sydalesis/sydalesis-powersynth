@@ -155,7 +155,7 @@ protected:
     const char* getMaker() const override       { return "Sydalesis"; }
     const char* getHomePage() const override    { return "https://sydalesis.itch.io/"; }   // 6.0: the synth's page
     const char* getLicense() const override     { return "Copyright Sydalesis"; }
-    uint32_t    getVersion() const override     { return d_version(6, 0, 0); }
+    uint32_t    getVersion() const override     { return d_version(6, 0, 1); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override
     {
