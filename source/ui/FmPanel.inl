@@ -255,7 +255,7 @@
     int dxListPage = 0;
     void drawDxList() {
         const Rect r = dxListRect();
-        beginPath(); roundedRect(r.x, r.y, r.w, r.h, 6); fillColor(withA(cBg, 0.97f)); fill(); strokeColor(cAccent); strokeWidth(1); stroke();
+        beginPath(); roundedRect(r.x, r.y, r.w, r.h, 6); fillColor(cBg); fill(); strokeColor(cAccent); strokeWidth(1); stroke();
         const int n = (int)dxBank.size(), pages = (n + 31) / 32;
         char hd[96]; std::snprintf(hd, sizeof hd, "%s · %d voices%s", dxBankName.c_str(), n, pages > 1 ? "  (click here for the next 32)" : "");
         labelS(r.x + 10, r.y + 12, hd, 9.f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);

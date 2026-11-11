@@ -1,6 +1,6 @@
 SYDALESIS 6 (6.0.0) FOR macOS
 =============================
-https://sydalesis.bandcamp.com
+Synth page: https://sydalesis.itch.io/  ·  Music: https://sydalesis.bandcamp.com
 
 Universal build: runs natively on Apple Silicon (M1-M4) and Intel Macs, macOS 10.15 or later.
 Formats: VST3, CLAP and Audio Unit (Logic Pro, GarageBand, MainStage).

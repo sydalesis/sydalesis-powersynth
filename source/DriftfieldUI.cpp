@@ -29,6 +29,7 @@ static void openUrl(const char* url) {
 #endif
 }
 static const char* const kBandcampUrl = "https://sydalesis.bandcamp.com";
+static const char* const kItchUrl = "https://sydalesis.itch.io/";
 #include "FontInter.hpp"
 #include <ctime>
 #include <array>

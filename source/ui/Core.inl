@@ -201,7 +201,7 @@
     float uiScale() const { return (float)getWidth() / kW; }
     bool anyOverlay() const { return menuOpen || presetOpen || browserOpen || saveOpen || randOpen || ctxOpen || dxListOpen >= 0; }
     int dxListOpen = -1;
-    Rect logoRect = { 14, 8, 200, 34 }, linkRect;   // 6.0: the logo and the SETUP link open sydalesis.bandcamp.com   // 6.0: DX7 voice list over an FM oscillator panel
+    Rect logoRect = { 14, 8, 200, 34 }, linkRect, itchRect;   // 6.0: the logo and the SETUP link open sydalesis.bandcamp.com   // 6.0: DX7 voice list over an FM oscillator panel
     int oscType(int o) const { return (int)std::round(values[oscP(o, ofType)]); }
     int ival(uint32_t p) const { return (int)std::round(values[p]); }
     bool visible(const Ctl& c) const {

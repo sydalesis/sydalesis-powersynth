@@ -151,7 +151,8 @@
         if (menuOpen)    { menuClick(mx, my); repaint(); return true; }
         if (ctxOpen)     { ctxClick(mx, my); repaint(); return true; }
         if (dxListOpen >= 0) { dxListClick(mx, my); repaint(); return true; }
-        if (ev.button == kMouseButtonLeft && (logoRect.contains(mx, my) || (page == pgSetup && linkRect.contains(mx, my)))) { openUrl(kBandcampUrl); return true; }
+        if (ev.button == kMouseButtonLeft && (logoRect.contains(mx, my) || (page == pgSetup && itchRect.contains(mx, my)))) { openUrl(kItchUrl); return true; }        // the synth's page
+        if (ev.button == kMouseButtonLeft && page == pgSetup && linkRect.contains(mx, my)) { openUrl(kBandcampUrl); return true; }   // music
 
         if (ev.button == kMouseButtonRight) {
             const int ci = ctlAt(mx, my);

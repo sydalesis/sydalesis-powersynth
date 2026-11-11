@@ -286,12 +286,18 @@
         label(1048, y + 40, help, 8.5f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);   // help sits under the buttons
     }
     void drawSetup() {
-        {   // 6.0: about / link
-            const char* t = "Sydalesis 6  ·  sydalesis.bandcamp.com  ↗";
-            linkRect = { kW - 330.f, 66, 316, 22 };
-            const bool hot = hovered(linkRect);
-            labelS(linkRect.x + linkRect.w, linkRect.cy(), t, 11.f, hot ? cText : cAccent, ALIGN_RIGHT | ALIGN_MIDDLE);
-            if (hot) { beginPath(); moveTo(linkRect.x + 40, linkRect.y + linkRect.h - 2); lineTo(linkRect.x + linkRect.w, linkRect.y + linkRect.h - 2); strokeColor(withA(cAccent, 0.6f)); strokeWidth(1); stroke(); }
+        {   // 6.0: about / links
+            label(kW - 520.f, 77, "Sydalesis 6 page", 11.f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
+            itchRect = { kW - 415.f, 66, 150, 22 };
+            label(kW - 250.f, 77, "Music", 11.f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
+            linkRect = { kW - 208.f, 66, 194, 22 };
+            auto link = [&](const Rect& r, const char* t) {
+                const bool hot = hovered(r);
+                labelS(r.x, r.cy(), t, 11.f, hot ? cText : cAccent, ALIGN_LEFT | ALIGN_MIDDLE);
+                if (hot) { beginPath(); moveTo(r.x, r.y + r.h - 2); lineTo(r.x + r.w - 8, r.y + r.h - 2); strokeColor(withA(cAccent, 0.6f)); strokeWidth(1); stroke(); }
+            };
+            link(linkRect, "sydalesis.bandcamp.com ↗");
+            link(itchRect, "sydalesis.itch.io ↗");
         }
         for (int i = 0; i < kSkinCount; ++i) drawSkinPreview(i, skinTile[i]);
         static const char* const rn[kRefreshCount] = { "30 Hz", "60 Hz", "120 Hz", "Max" };
