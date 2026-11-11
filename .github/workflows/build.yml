@@ -69,7 +69,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Toolchain
-        run: sudo apt-get update -q && sudo apt-get install -y -q g++-mingw-w64-x86-64-posix zip
+        # GitHub's Azure Ubuntu mirror sometimes fails to resolve: use the main Ubuntu archive and retry
+        run: |
+          for f in /etc/apt/sources.list /etc/apt/sources.list.d/*.list /etc/apt/sources.list.d/*.sources; do
+            [ -f "$f" ] && sudo sed -i -E 's#mirror\+file:/etc/apt/apt-mirrors.txt#http://archive.ubuntu.com/ubuntu/#g; s#http://azure\.archive\.ubuntu\.com/ubuntu/?#http://archive.ubuntu.com/ubuntu/#g' "$f"
+          done
+          for i in 1 2 3; do
+            sudo apt-get -o Acquire::Retries=5 update -q && sudo apt-get -o Acquire::Retries=5 install -y -q g++-mingw-w64-x86-64-posix zip && exit 0
+            echo "apt attempt $i failed, retrying in 20 s"; sleep 20
+          done
+          exit 1
       - name: Build Windows VST3 / CLAP
         run: |
           set -o pipefail
