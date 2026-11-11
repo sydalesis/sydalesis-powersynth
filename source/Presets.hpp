@@ -16,6 +16,7 @@ struct FactoryPreset {
     const char* tags;          // comma separated, lower case
     uint32_t    d0, dn;        // settings: kPresetData[2*d0 .. 2*(d0+dn))
     const PresetState* st;     // terminated by { nullptr, nullptr }
+    uint8_t     bank;          // 6.0: 0 = the 6.0 bank, 1 = Legacy 5.x
 };
 
 #include "FactoryPresets.inc"

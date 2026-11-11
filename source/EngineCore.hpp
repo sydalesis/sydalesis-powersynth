@@ -1726,9 +1726,14 @@ private:
                 float sa, ca; fastSinCos((pn + 1.f) * 0.25f * kPiF, sa, ca);
                 ov.aPl[i] = ca * 1.4142f; ov.aPr[i] = sa * 1.4142f;
             }
-            const float m = 1.5f - 0.5f * (ov.aS[i] * ov.aS[i] + ov.aC[i] * ov.aC[i]);
-            ov.aS[i] *= m; ov.aC[i] *= m;
+            renormPartial(ov, i);
         }
+        // 6.0 fix (see renormPartial): the partials the renderer still runs past `span` are kept normalised too
+        for (int i = span; i < ((span + 7) & ~7) && i < kMaxPartials; ++i) renormPartial(ov, i);
+        // 6.0 fix: the renderer runs partials in groups of 8, so up to 7 partials past `span` are still played. When
+        // the Nyquist limit moves (Stretch modulation, bends, glides) those kept their last amplitude ramp and drifted
+        // without bound (NaN). Silence them.
+        for (int i = span; i < ((span + 7) & ~7) && i < kMaxPartials; ++i) { ov.aAmp[i] = 0.f; ov.aDa[i] = 0.f; }
         for (int i = span; i < kMaxPartials && repan; ++i) {
             const float pn = clampf(pan + spread * ((i & 1) ? 1.f : -1.f), -1.f, 1.f);
             float sa, ca; fastSinCos((pn + 1.f) * 0.25f * kPiF, sa, ca);
@@ -1737,6 +1742,15 @@ private:
         ov.aCount = cnt;
     }
 
+    // 6.0 fix: one Newton step keeps a partial's rotation at unit length only while it is close to 1. Partials just past
+    // the Nyquist limit used to rotate un-normalised and drift; when the limit moved back (Stretch modulation, bends) the
+    // Newton step diverged into NaN. Far from 1: exact normalisation (or a fresh phase when it has collapsed).
+    static inline void renormPartial(OscVoice& ov, int i) {
+        const float m2 = ov.aS[i] * ov.aS[i] + ov.aC[i] * ov.aC[i];
+        if (m2 > 0.81f && m2 < 1.21f) { const float m = 1.5f - 0.5f * m2; ov.aS[i] *= m; ov.aC[i] *= m; }
+        else if (m2 > 1e-12f && std::isfinite(m2)) { const float m = 1.f / std::sqrt(m2); ov.aS[i] *= m; ov.aC[i] *= m; }
+        else { ov.aS[i] = 0.f; ov.aC[i] = 1.f; }
+    }
     void updatePhysical(Voice& v, int o, float semis, float t1, float t2, float t3, float t4, float pan) {
         OscVoice& ov = v.o[o];
         const int model = oiparam(o, ofPmModel, 0, kPmModels - 1);

@@ -290,7 +290,7 @@
     // ------------------------------------------------------------------ header
     std::string presetLabel() const {
         if (currentPreset >= 0 && currentPreset < (int)kFactoryPresetCount)
-            return std::string(kFactoryPresets[currentPreset].category) + "  /  " + kFactoryPresets[currentPreset].name;
+            return std::string(kFactoryPresets[currentPreset].bank ? "5.x  " : "") + kFactoryPresets[currentPreset].category + "  /  " + kFactoryPresets[currentPreset].name;   // 6.0: legacy marked
         const int u = currentPreset - (int)kFactoryPresetCount;
         if (u >= 0 && u < (int)userPresets.size()) return "User  /  " + userPresets[u].name;
         if (!orphanPresetName.empty()) return orphanPresetName;

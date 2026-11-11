@@ -283,6 +283,7 @@
         const int n = std::min(totalPresets(), (int)pbCatOf.size());
         int rej = 0;
         for (int i = 0; i < n; ++i) {
+            if (inOtherBank(i)) continue;     // 6.0: counts follow the bank shown
             const std::string k = presetKey(i);
             if (isRejected(k)) { ++rej; continue; }
             const int c = pbCatOf[(size_t)i];
@@ -296,7 +297,7 @@
     int totalPresets() const { return (int)kFactoryPresetCount + (int)userPresets.size(); }
     void stepPreset(int dir) {   // 5.1.1: the arrows skip rejected presets
         const int n = totalPresets(); int i = currentPreset < 0 ? 0 : currentPreset;
-        for (int k = 0; k < n; ++k) { i = (i + dir + n) % n; if (!isRejected(presetKey(i))) break; }
+        for (int k = 0; k < n; ++k) { i = (i + dir + n) % n; if (!isRejected(presetKey(i)) && !inOtherBank(i)) break; }   // 6.0: stays in the bank
         loadAnyPreset(i);
     }
     std::string entryName(int idx) const { return idx < (int)kFactoryPresetCount ? std::string(kFactoryPresets[idx].name) : userPresets[idx - kFactoryPresetCount].name; }
@@ -354,11 +355,17 @@
         if (sl != std::string::npos) n = n.substr(0, sl) + "  /  " + n.substr(sl + 1);
         orphanPresetName = (k[0] == 'U' ? "User  /  " : "") + n;
     }
+    // 6.0: which factory bank the browser shows (0 = the 6.0 bank, 1 = Legacy 5.x); favourites and recent show both
+    int pbBank = 0;
+    Rect pbBankBtn[2];
+    int factoryBank(int idx) const { return idx >= 0 && idx < (int)kFactoryPresetCount ? (int)kFactoryPresets[idx].bank : -1; }
+    bool inOtherBank(int idx) const { const int b = factoryBank(idx); return b >= 0 && b != pbBank; }
     void openPresetBrowser() {
         scanUserPresets();
         presetOpen = true;
         pbScroll = 0.f;
         pbCat = 1;
+        if (factoryBank(currentPreset) >= 0 && factoryBank(currentPreset) != pbBank) { pbBank = factoryBank(currentPreset); rebuildCatCounts(); }
         if (currentPreset >= 0) {
             const std::string c = entryCat(currentPreset);
             for (size_t i = 0; i < pbCats.size(); ++i) if (pbCats[i] == c) pbCat = (int)i;
@@ -368,7 +375,7 @@
     const std::vector<int>& presetEntries() {
         if ((int)pbHay.size() != totalPresets()) scanUserPresets();
         std::string chipKey; for (const auto& c : pbChips) chipKey += c + ",";
-        const std::string key = std::to_string(pbCat) + "|" + std::to_string(favVersion) + "|" + std::to_string(totalPresets()) + "|" + searchText + "|" + chipKey + "|" + std::to_string(rejects.size());
+        const std::string key = std::to_string(pbBank) + "/" + std::to_string(pbCat) + "|" + std::to_string(favVersion) + "|" + std::to_string(totalPresets()) + "|" + searchText + "|" + chipKey + "|" + std::to_string(rejects.size());
         if (key == pbEntsKey) return pbEnts;
         pbEntsKey = key;
         std::vector<int>& out = pbEnts;
@@ -386,6 +393,7 @@
         }
         for (int i = 0; i < totalPresets(); ++i) {
             if (!chipsOk(i)) continue;
+            if (pbCat != 0 && inOtherBank(i)) continue;      // 6.0: favourites list both banks
             const bool rj = isRejected(presetKey(i));
             if (pbCat == 3) { if (!rj) continue; out.push_back(i); continue; }
             if (rj) continue;
@@ -422,6 +430,10 @@
         beginPath(); roundedRect(pbSearch.x, pbSearch.y, pbSearch.w, pbSearch.h, 5); fillColor(cInset); fill(); strokeColor(searching ? cAccent : cPanelEdge); stroke();
         labelS(pbSearch.x + 10, pbSearch.cy() + 1, searchText.empty() && !searching ? std::string("search name, category or tag (e.g. roach drone bowed)") : searchText + (searching ? "_" : ""), 11,
                searchText.empty() && !searching ? cFaint : cText, ALIGN_LEFT | ALIGN_MIDDLE);
+        // 6.0 bank switch
+        pbBankBtn[0] = { b.x + 264, b.y + 12, 52, 28 }; pbBankBtn[1] = { b.x + 318, b.y + 12, 56, 28 };
+        button(pbBankBtn[0], "6.0", pbBank == 0, pbBankBtn[0].contains(hoverX, hoverY), 10.5f);
+        button(pbBankBtn[1], "5.x", pbBank == 1, pbBankBtn[1].contains(hoverX, hoverY), 10.5f, &cWarm);
         pbIntoBtn  = { b.x + 832, b.y + 12, 198, 28 };
         button(pbIntoBtn, pbInto == 2 ? "Loads into: LAYER 2" : "Loads into: whole patch", pbInto == 2, pbIntoBtn.contains(hoverX, hoverY), 10, &cViolet);
         pbSaveBtn  = { b.x + b.w - 200, b.y + 12, 90, 28 };
@@ -515,6 +527,7 @@
         repaint();
     }
     void presetBrowserClick(float x, float y, uint32_t t) {
+        for (int b = 0; b < 2; ++b) if (pbBankBtn[b].contains(x, y)) { pbBank = b; pbScroll = 0.f; rebuildCatCounts(); saveOptions(); repaint(); return; }
         if (pbSearch.contains(x, y)) { textTarget = ttSearch; return; }
         if (textTarget == ttSearch) textTarget = ttNone;
         if (!pbRect.contains(x, y) || pbCloseBtn.contains(x, y)) { presetOpen = false; return; }

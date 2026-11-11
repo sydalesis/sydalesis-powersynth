@@ -46,6 +46,7 @@
             else if (k == "textSize") optTextSize = std::max(0, std::min(2, v));
             else if (k == "msegGridX") optMsegGridX = std::max(0, std::min(kMsegGridX - 1, v));
             else if (k == "msegGridY") optMsegGridY = std::max(0, std::min(kMsegGridY - 1, v));
+            else if (k == "presetBank") pbBank = v ? 1 : 0;
         }
     }
     void saveOptions() const {
@@ -55,7 +56,7 @@
         out << "refresh " << optRefresh << "\nsmooth " << optSmooth << "\npredict " << (optPredict ? 1 : 0)
             << "\ntooltips " << (optTips ? 1 : 0) << "\nlive " << (optLive ? 1 : 0) << "\nskin " << optSkin << "\nscopeMode " << scopeMode << "\nscopeGain " << scopeGain << "\nscopeTime " << scopeTime
             << "\nscopeChan " << scopeChan << "\nscopeTilt " << scopeTilt << "\nrollLen " << rollLen << "\ncpuGuard " << (optGuard ? 1 : 0) << "\nthreads " << optThreads << "\ntextSize " << optTextSize
-            << "\nmsegGridX " << optMsegGridX << "\nmsegGridY " << optMsegGridY << "\n";
+            << "\nmsegGridX " << optMsegGridX << "\nmsegGridY " << optMsegGridY << "\npresetBank " << pbBank << "\n";
     }
 
     // ------------------------------------------------------------------ frame timer
@@ -329,7 +330,7 @@
         line("UI frame rate", b, cText);
         std::snprintf(b, sizeof(b), "%.0f frames/s from the engine (one per audio block)", telMeasured);
         line("Telemetry", shared ? std::string(b) : std::string("not available in this host (separate UI process)"), shared ? cText : cWarn);
-        std::snprintf(b, sizeof(b), "%d factory  ·  %d user", (int)kFactoryPresetCount, (int)userPresets.size());
+        std::snprintf(b, sizeof(b), "%d in the 6.0 bank  ·  %d in Legacy 5.x  ·  %d user", (int)kFactoryBank6Count, (int)(kFactoryPresetCount - kFactoryBank6Count), (int)userPresets.size());
         line("Presets", b, cText);
         y += 10;
         line("Presets folder", driftDir() + "/Presets3", cAccent);
