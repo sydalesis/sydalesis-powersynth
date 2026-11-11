@@ -155,7 +155,7 @@ protected:
     const char* getMaker() const override       { return "Sydalesis"; }
     const char* getHomePage() const override    { return "https://sydalesis.bandcamp.com"; }
     const char* getLicense() const override     { return "Copyright Sydalesis"; }
-    uint32_t    getVersion() const override     { return d_version(5, 1, 7); }
+    uint32_t    getVersion() const override     { return d_version(6, 0, 0); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override
     {
@@ -682,9 +682,9 @@ private:
         const ParamDef& d = P(i);
         v = v < d.min ? d.min : (v > d.max ? d.max : v);
         values[i] = v;
-        if (i < kLayerParams) eng[0]->setParam(i, v);
-        else if (i < kEngineParams) { eng[0]->setParam(i, v); eng[1]->setParam(i, v); }
-        else eng[1]->setParam(i - kLayerBOffset, v);
+        uint32_t e; const int ly = hostToEngine(i, e);
+        if (ly < 0) { eng[0]->setParam(e, v); eng[1]->setParam(e, v); }
+        else eng[ly]->setParam(e, v);
     }
 
     DISTRHO_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DriftfieldPlugin)

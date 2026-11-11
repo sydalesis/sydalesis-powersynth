@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 ROOT="$PWD"
-VERSION="5.1.7"
+VERSION="6.0.0"
 DPF_COMMIT=4238e1c7f0351bbe488d79f0899c540543ac7583   # the DPF the patch was written against
 
 # 1. DPF framework, pinned, with the Sydalesis patch (VST3 note expression, CLAP restore bracket / MIDI learn)

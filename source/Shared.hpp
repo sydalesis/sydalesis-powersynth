@@ -331,6 +331,7 @@ static inline DestMap destMap(int d, const int* oscType) {
             case otPhysical:  return { (int)oscP(o, pm[ti]), ti == 2 ? 1 : 0, pmS[ti] };
             case otSpectral: { static const uint32_t sp[4] = { o2SpPos, o2SpBlur, o2SpShift, o2SpCross }; static const float spS[4] = { 1.f, 5.f, 200.f, 1.f };
                                return { (int)osc2P(o, sp[ti]), 0, spS[ti] }; }
+            case otFm: { static const int fm[4] = { fmIndex, fmFeedback, fmBright, fmSpread }; return { (int)fmP(o, fm[ti]), 0, 1.f }; }
             default:          return { (int)oscP(o, gr[ti]), (ti == 1 || ti == 2) ? 1 : 0, (ti == 1 || ti == 2) ? 3.f : 1.f };
             }
         }
@@ -426,6 +427,7 @@ static inline DestMap destMap(int d, const int* oscType) {
         case otAnalog: t = an; break; case otAdditive: t = ad; break; case otPhysical: t = pm; break;
         case otGranular: t = gr; break; case otSpectral: t = sp; break; default: break;
         }
+        if (oscType[o] == otFm) return { (int)fmOpP(o, k, foLevel), 0, 1.f };      // 6.0: operator levels
         if (!t || t[k].scale == 0.f) return { -1, 0, 0.f };
         return { (int)(t[k].second ? osc2P(o, t[k].f) : oscP(o, t[k].f)), 0, t[k].scale };
     }

@@ -23,7 +23,7 @@ enum OscField : uint32_t {
 static constexpr int kOscs = 3;
 static inline constexpr uint32_t oscP(int osc, uint32_t field) { return (uint32_t)osc * kOscFields + field; }
 
-enum OscType { otWavetable, otAnalog, otAdditive, otPhysical, otGranular, otSpectral, kOscTypes };
+enum OscType { otWavetable, otAnalog, otAdditive, otPhysical, otGranular, otSpectral, otFm, kOscTypes };   // 6.0: FM
 
 // 4.2: second per-oscillator block (appended so earlier parameter ids stay valid); fields past kOsc2Used
 // are hidden reserves for later engines
@@ -111,8 +111,45 @@ enum ParamId : uint32_t {
     pGRsvLast = kLayerParams + 15,
     kEngineParams,                      // an engine instance sees indices 0 .. kEngineParams-1
     kLayerBOffset = kEngineParams,      // layer 2 = kLayerBOffset + (layer-1 index), symbol "b_" + symbol
-    kParamCount = kEngineParams + kLayerParams
+    kParamCountV5 = kEngineParams + kLayerParams       // every parameter up to 5.1.7
 };
+
+// ------------------------------------------------------------------------------------------------
+// 6.0 extension block: parameters added after the 5.x list so no existing parameter id moves (sessions and
+// automation keep working). Layer 1's block starts at pX0, layer 2's copy follows it ("b_" symbols). The engine
+// sees layer-local indices: 0 .. kEngineParams-1 and pX0 .. pX0+kExtParams-1.
+// FM oscillator (per osc): 8 oscillator-wide fields, then 6 operators x 13 fields.
+enum FmField { fmAlgo, fmFeedback, fmIndex, fmBright, fmSpread, fmEnvTime, fmVelIdx, fmKeyIdx, kFmGlobal };
+enum FmOpField { foCoarse, foFine, foDetune, foFixed, foHz, foLevel, foWave, foAttack, foDecay, foSustain, foRelease, foVel, foKey, kFmOpFields };
+static constexpr int kFmOps = 6;
+static constexpr int kFmFields = kFmGlobal + kFmOps * kFmOpFields;    // 86
+static constexpr int kFmAlgos = 32;
+static constexpr int kFmWaves = 8;
+static constexpr uint32_t pX0 = kParamCountV5;
+static constexpr uint32_t kExtUsed = 3 * kFmFields;
+static constexpr uint32_t kExtParams = kExtUsed + 30;                 // + hidden reserves for later
+static constexpr uint32_t kParamCount = kParamCountV5 + 2 * kExtParams;
+static constexpr uint32_t kEngineArr = pX0 + kExtParams;               // size of an engine's parameter array
+static inline uint32_t fmP(int osc, int f) { return pX0 + (uint32_t)osc * kFmFields + (uint32_t)f; }
+static inline uint32_t fmOpP(int osc, int op, int f) { return fmP(osc, kFmGlobal + op * kFmOpFields + f); }
+static inline bool isExtParam(uint32_t i) { return i >= pX0 && i < pX0 + kExtParams; }
+// a layer parameter (one value per layer): the 5.x layer block or the extension block (layer-1 indices)
+static inline bool isLayerParam(uint32_t i) { return i < kLayerParams || isExtParam(i); }
+// layer-1 index -> layer-2 index
+static inline uint32_t layer2Of(uint32_t i) { return i < kLayerParams ? i + kLayerBOffset : i + kExtParams; }
+// host index -> (layer, engine index); layer -1 = shared by both layers
+static inline int hostToEngine(uint32_t i, uint32_t& e) {
+    if (i < kLayerParams) { e = i; return 0; }
+    if (i < kEngineParams) { e = i; return -1; }
+    if (i < kParamCountV5) { e = i - kLayerBOffset; return 1; }
+    if (i < pX0 + kExtParams) { e = i; return 0; }
+    e = i - kExtParams; return 1;
+}
+// every layer-1 parameter index, in order (5.x block then the extension block)
+template <typename F> static inline void forEachLayerParam(F f) {
+    for (uint32_t i = 0; i < kLayerParams; ++i) f(i);
+    for (uint32_t i = pX0; i < pX0 + kExtParams; ++i) f(i);
+}
 static_assert(pRsv1 <= pRsvLast, "layer parameters overflow the reserve");
 static inline uint32_t osc2P(int osc, uint32_t field) { return pO2First + (uint32_t)osc * kOsc2Fields + field; }
 static inline uint32_t lfoP(int i, int f) { return pL1Rate + (uint32_t)kLfoFields * (uint32_t)i + (uint32_t)f; }
@@ -152,7 +189,9 @@ static const char* const kXyShapeNames[kXyShapes] = { "Off", "Circle", "Ellipse"
 static const char* const kLyModeNames[6] = { "Off", "Layer", "Split", "Velocity XF", "Pressure XF", "Morph" };
 static const char* const kTnSourceNames[4] = { "Equal", "Library", "Scala", "MTS-ESP" };
 static const char* const kTnRootNames[12] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-static const char* const kOscTypeNames[kOscTypes] = { "Wavetable", "Analog", "Additive", "Physical", "Granular", "Spectral" };
+static const char* const kOscTypeNames[kOscTypes] = { "Wavetable", "Analog", "Additive", "Physical", "Granular", "Spectral", "FM" };
+static const char* const kFmWaveNames[kFmWaves] = { "Sine", "Half Sine", "Abs Sine", "Quarter", "Alt Sine", "Camel", "Soft Square", "Soft Saw" };
+static const char* const kFmAlgoNames[kFmAlgos] = { "Alg 1", "Alg 2", "Alg 3", "Alg 4", "Alg 5", "Alg 6", "Alg 7", "Alg 8", "Alg 9", "Alg 10", "Alg 11", "Alg 12", "Alg 13", "Alg 14", "Alg 15", "Alg 16", "Alg 17", "Alg 18", "Alg 19", "Alg 20", "Alg 21", "Alg 22", "Alg 23", "Alg 24", "Alg 25", "Alg 26", "Alg 27", "Alg 28", "Alg 29", "Alg 30", "Alg 31", "Alg 32" };
 static const char* const kSpCrossNames[3] = { "Off", "Morph", "Vocode" };
 static const char* const kTableNames[8] = { "Analog Morph", "Spectral Tilt", "Formant Choir", "Glass Partials",
                                             "Hollow Pulse", "Drawbar Organ", "Odd Shimmer", "Dark Reed" };
@@ -301,7 +340,8 @@ static const char* const kTimbreNames[kOscTypes][4] = {
     { "Morph", "Peak", "Tilt", "Vowel" },
     { "Position", "Hardness", "Decay", "Damping" },
     { "Position", "Size", "Density", "Spray" },
-    { "Position", "Blur", "Shift", "Cross" } };
+    { "Position", "Blur", "Shift", "Cross" },
+    { "FM Index", "Feedback", "Brightness", "Spread" } };
 // 5.1.7: Timbre 5..10 - the rest of each engine's continuous knobs (nullptr = no target on that engine)
 static const char* const kTimbreXNames[kOscTypes][kTimbreX] = {
     { nullptr, nullptr, nullptr, nullptr, nullptr, nullptr },
@@ -309,7 +349,8 @@ static const char* const kTimbreXNames[kOscTypes][kTimbreX] = {
     { "Stretch", "Odd/Even", "Peak Amount", "Comb Shift", "Shimmer", "Partial Detune" },
     { "Stretch", "Mode Spread", "Coupling", "Buzz / Sympathy", "Exciter Noise", "Nonlinearity" },
     { "Scan", "Pitch Rnd", "Spread", "Reverse", nullptr, nullptr },
-    { "Speed", "Stretch", "Tilt", "Formant", "Sparse", nullptr } };
+    { "Speed", "Stretch", "Tilt", "Formant", "Sparse", nullptr },
+    { "Op 1 Level", "Op 2 Level", "Op 3 Level", "Op 4 Level", "Op 5 Level", "Op 6 Level" } };
 
 // FX units, in the default chain order
 enum FxUnit { fxDrive, fxPhaser, fxChorus, fxDelay, fxShift, fxTape, fxCrush, fxWidth, fxEq, fxReso, fxSpace, fxSpectral, kFxUnits };
@@ -674,6 +715,47 @@ private:
         // layer 2: a copy of every layer parameter
         const size_t n1 = kLayerParams;
         for (size_t i = 0; i < n1; ++i) {
+            const ParamDef d = defs[i];
+            add(keep(std::string("L2 ") + d.name), keep(std::string("b_") + d.symbol), d.unit, d.min, d.max, d.def, d.flags, d.enumNames);
+        }
+        // 6.0 extension block (layer 1), then its layer-2 copy
+        const size_t x0 = defs.size();
+        static const char* const FL[3] = { "A", "B", "C" };
+        static const char* const fl[3] = { "a", "b", "c" };
+        for (int o = 0; o < kOscs; ++o) {
+            auto N = [&](const std::string& n) { return keep(std::string("Osc ") + FL[o] + " FM " + n); };
+            auto S = [&](const std::string& s) { return keep(std::string("o") + fl[o] + "Fm" + s); };
+            add(N("Algorithm"), S("Algo"), "", 0, kFmAlgos - 1, 4, fInt, kFmAlgoNames);
+            add(N("Feedback"), S("Feedback"), "", 0, 1, 0, fNone);
+            add(N("Index"), S("Index"), "x", 0, 2, 1, fNone);
+            add(N("Brightness"), S("Bright"), "", -1, 1, 0, fNone);
+            add(N("Spread"), S("Spread"), "", 0, 1, 0, fNone);
+            add(N("Env Time"), S("EnvTime"), "x", 0.1f, 10, 1, fLog);
+            add(N("Velocity to Index"), S("VelIdx"), "", 0, 1, 0.3f, fNone);
+            add(N("Key to Index"), S("KeyIdx"), "", -1, 1, 0, fNone);
+            for (int k = 0; k < kFmOps; ++k) {
+                const std::string on = "Op " + std::to_string(k + 1) + " ", os = std::to_string(k + 1);
+                // init patch: algorithm 5 (three 2-op pairs); op 1 carrier at full level, op 2 its modulator
+                const float lvl = k == 0 ? 1.f : (k == 1 ? 0.45f : 0.f);
+                add(N(on + "Ratio"), S(os + "Coarse"), "", 0, 32, 1, fInt);
+                add(N(on + "Fine"), S(os + "Fine"), "", 0, 0.99f, 0, fNone);
+                add(N(on + "Detune"), S(os + "Detune"), "ct", -50, 50, 0, fNone);
+                add(N(on + "Fixed"), S(os + "Fixed"), "", 0, 1, 0, fInt | fBool);
+                add(N(on + "Fixed Freq"), S(os + "Hz"), "Hz", 1, 9000, 440, fLog);
+                add(N(on + "Level"), S(os + "Level"), "", 0, 1, lvl, fNone);
+                add(N(on + "Wave"), S(os + "Wave"), "", 0, kFmWaves - 1, 0, fInt, kFmWaveNames);
+                add(N(on + "Attack"), S(os + "Atk"), "s", 0.001f, 20, 0.005f, fLog);
+                add(N(on + "Decay"), S(os + "Dec"), "s", 0.005f, 30, 2.f, fLog);
+                add(N(on + "Sustain"), S(os + "Sus"), "", 0, 1, 0.8f, fNone);
+                add(N(on + "Release"), S(os + "Rel"), "s", 0.005f, 30, 1.f, fLog);
+                add(N(on + "Velocity"), S(os + "Vel"), "", 0, 1, 0.f, fNone);
+                add(N(on + "Key Scale"), S(os + "Key"), "", -1, 1, 0, fNone);
+            }
+        }
+        for (uint32_t k = kExtUsed; k < kExtParams; ++k)
+            add(keep("Ext Reserved " + std::to_string(k - kExtUsed + 1)), keep("xrsv" + std::to_string(k - kExtUsed + 1)), "", 0, 1, 0, fHidden);
+        const size_t x1 = defs.size();
+        for (size_t i = x0; i < x1; ++i) {
             const ParamDef d = defs[i];
             add(keep(std::string("L2 ") + d.name), keep(std::string("b_") + d.symbol), d.unit, d.min, d.max, d.def, d.flags, d.enumNames);
         }

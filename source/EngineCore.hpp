@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <vector>
 #include "SpecData.hpp"
+#include "FmAlgos.hpp"
 
 namespace DRIFT_NS {
 
@@ -287,6 +288,14 @@ struct OscVoice {
     // 5.0 spectral: output phase / blurred magnitude per bin, overlap-add rings (pool memory)
     float* spPh = nullptr; float* spMagS = nullptr; float* spFq = nullptr; float* spOlaL = nullptr; float* spOlaR = nullptr;
     int oscIdx = 0;
+    // 6.0 FM oscillator: 6 operators x up to 4 unison voices
+    float fmPh[4][6] = {}, fmInc[4][6] = {};
+    float fmY1[4] = {}, fmY2[4] = {};
+    float fmEnv[6] = {}; int fmStage[6] = {};
+    float fmE0[6] = {}, fmE1[6] = {}, fmS0[6] = {}, fmS1[6] = {}, fmDc[6] = {}, fmRnd[6] = {};
+    float fmFb0 = 0.f, fmFb1 = 0.f, fmHpX[4] = {}, fmHpY[4] = {}, fmHpR = 0.999f;
+    int   fmWv[6] = {}, fmAlg = 4;
+    bool  fmFresh = true;
     float* pmBuf = nullptr; int pmW = 0; float pmD = 0.f, pmAcc = 0.f; bool pmOn = false;   // 6.0: PM / FM by delay (Additive, Physical, Spectral)
     int   spN = 0, spH = 0, spBins = 0, spRp = 0, spToNext = 0;
     double spOff = 0.0;
@@ -363,12 +372,12 @@ struct Voice {
 // ------------------------------------------------------------------------------------------------
 class Engine final : public drift::IEngine {
 public:
-    float p[kEngineParams];   // one layer's parameters + the shared layer setup
+    float p[kEngineArr];   // one layer's parameters + the shared layer setup
     float fs = 48000.f;       // internal voice rate (2x in HQ)
     float fsOut = 48000.f;
 
     Engine() {
-        for (uint32_t i = 0; i < kEngineParams; ++i) p[i] = 0.f;
+        for (uint32_t i = 0; i < kEngineArr; ++i) p[i] = 0.f;
         builtin = &drift::builtinTables();
         const size_t per = (size_t)kWgSize + (size_t)kSymLines * kSymSize;
         wgPool = new float[(size_t)kMaxVoices * 3 * per];
@@ -455,7 +464,7 @@ public:
         f2Smooth = std::log2(clampf(p[pF2Cutoff], 16.f, 20000.f));
         masterS = dbToGain(p[pMaster]);
     }
-    void setParam(uint32_t i, float v) override { if (i < kEngineParams) p[i] = v; }
+    void setParam(uint32_t i, float v) override { if (i < kEngineParams || isExtParam(i)) p[i] = v; }
     void setLayer(int index) override { layerIdx = index ? 1 : 0; }
     void setTransport(double bpm, bool playing, double beat) override {
         hostBpm = bpm > 20.0 && bpm < 999.0 ? bpm : 120.0;
@@ -1286,6 +1295,9 @@ private:
                 for (auto& s : ov.symLP) s = 0.f;
                 for (auto& g : ov.gr) g.on = false;
                 ov.grTimer = 0.f; ov.grScan = 0.f;
+                for (int u = 0; u < 4; ++u) { for (int k = 0; k < 6; ++k) ov.fmPh[u][k] = retrig ? 0.f : rng.uni(); ov.fmY1[u] = ov.fmY2[u] = ov.fmHpX[u] = ov.fmHpY[u] = 0.f; }
+                for (int k = 0; k < 6; ++k) { ov.fmEnv[k] = 0.f; ov.fmRnd[k] = rng.bi(); }
+                ov.fmFresh = true;
             }
             v.ae.reset(); v.fe.reset(); v.me.reset();
             v.f1L.reset(); v.f1R.reset(); v.f2L.reset(); v.f2R.reset();
@@ -1299,6 +1311,9 @@ private:
         }
         for (int o = 0; o < 3; ++o) {
             v.o[o].strikeEnv = vel; v.o[o].impulse = vel;
+            for (int k = 0; k < 6; ++k) v.o[o].fmStage[k] = 0;      // FM operator envelopes restart (from their current level)
+            if (!fresh && op(o, ofRetrig) >= 0.5f && oiparam(o, ofType, 0, kOscTypes - 1) == otFm)
+                for (int u = 0; u < 4; ++u) { for (int k = 0; k < 6; ++k) v.o[o].fmPh[u][k] = 0.f; }
             if (!fresh && op(o, ofRetrig) >= 0.5f) {
                 const bool plain = phMod[o] == 0.f && p[osc2P(o, o2PhaseRnd)] == 0.f;
                 for (int j = 0; j < kMaxUnison; ++j) { v.o[o].ph[j] = plain ? op(o, ofPhase) : startPhase(o); v.o[o].sph[j] = v.o[o].ph[j]; }
@@ -1570,6 +1585,8 @@ private:
                 updatePhysical(v, o, semis, t1, t2, t3, t4, pan);
             } else if (ov.type == otSpectral) {
                 updateSpectral(v, o, semis, t1, t2, t3, t4, pan);
+            } else if (ov.type == otFm) {
+                updateFm(v, o, semis, t1, t2, t3, t4, pan, n);
             } else {
                 updateGranular(v, o, semis, t1, t2, t3, t4, pan);
             }
@@ -2206,6 +2223,240 @@ private:
         else if (ov.fmMode == 3) { for (int s = 0; s < n; ++s) { const float g = 1.f - ov.fmAmt + ov.fmAmt * fm[s] * 2.f; L[s] *= g; R[s] *= g; M[s] *= g; } }
     }
 
+
+    // ---- 6.0 FM oscillator ------------------------------------------------------------------------
+    // sine with ~1e-6 error (the operators' purity matters: the modulators' harmonics are multiplied by the index)
+    static inline float fmSin(float x) {
+        x -= std::floor(x);
+        const float t = x < 0.5f ? x * 2.f - 0.5f : 1.5f - x * 2.f;          // triangle fold, [-0.5, 0.5]
+        const float u = t * kPiF, u2 = u * u;
+        return u * (1.f - u2 * (1.f / 6.f - u2 * (1.f / 120.f - u2 * (1.f / 5040.f - u2 * (1.f / 362880.f)))));
+    }
+    static inline float fmWave(int w, float ph) {
+        ph -= std::floor(ph);
+        switch (w) {
+        default:
+        case 0: return fmSin(ph);
+        case 1: { const float s = fmSin(ph); return s > 0.f ? s : 0.f; }                                  // half sine
+        case 2: return std::fabs(fmSin(ph));                                                               // abs sine
+        case 3: { const float q = ph < 0.5f ? ph : ph - 0.5f; return q < 0.25f ? std::fabs(fmSin(ph)) : 0.f; }   // quarter
+        case 4: return ph < 0.5f ? fmSin(ph * 2.f) : 0.f;                                                  // alternating
+        case 5: return ph < 0.5f ? std::fabs(fmSin(ph * 2.f)) : 0.f;                                       // camel
+        case 6: { const float s = 3.f * fmSin(ph); return s / (1.f + std::fabs(s)) * 1.3333333f; }         // soft square
+        case 7: return (fmSin(ph) + 0.5f * fmSin(ph * 2.f) + 0.25f * fmSin(ph * 3.f)) * 0.68f;             // soft saw
+        }
+    }
+    static inline float fmWaveDc(int w) {
+        static const float dc[kFmWaves] = { 0.f, 0.3183099f, 0.6366198f, 0.3183099f, 0.f, 0.3183099f, 0.f, 0.f };
+        return dc[w < 0 || w >= kFmWaves ? 0 : w];
+    }
+    float fmPv(int o, int f) const { return p[fmP(o, f)]; }
+    float fmOpv(int o, int k, int f) const { return p[fmOpP(o, k, f)]; }
+
+    void updateFm(Voice& v, int o, float semis, float t1, float t2, float t3, float t4, float pan, int n) {
+        OscVoice& ov = v.o[o];
+        const drift::FmAlgo& A = drift::fmAlgoDef((int)(fmPv(o, fmAlgo) + 0.5f));
+        ov.fmAlg = (int)(fmPv(o, fmAlgo) + 0.5f);
+        // unison (up to 4), same controls as the wavetable / analog engines
+        int nu = oiparam(o, ofVoices, 1, kMaxUnison);
+        if (nu > 4) nu = 4;
+        if (nu > unisonCap()) nu = unisonCap();
+        ov.nUni = nu;
+        float detune = op(o, ofDetune) + v.md[mdDetuneAll] * 50.f + v.md[modDstOscBase(o) + 8] * 50.f;
+        if (detune < 0.f) detune = 0.f;
+        const float uniW = clampf(op(o, ofUniWidth), 0.f, 1.f);
+        const float norm = 1.f / std::sqrt((float)nu);
+        static const float panSignF[3] = { 1.f, -1.f, 0.6f };
+        float uniCents[4];
+        for (int j = 0; j < nu; ++j) {
+            const float posn = nu == 1 ? 0.f : 2.f * j / (nu - 1) - 1.f;
+            uniCents[j] = posn * detune;
+            const float pn = clampf(posn * p[pSpread] * uniW * panSignF[o] + pan, -1.f, 1.f);
+            float sa, ca; fastSinCos((pn + 1.f) * 0.25f * kPiF, sa, ca);
+            ov.gL[j] = norm * ca * 1.4142f; ov.gR[j] = norm * sa * 1.4142f; ov.gM[j] = norm;
+        }
+        // oscillator-wide
+        const float vel = v.vel;
+        const float keyOct = (semis - 60.f) / 12.f;
+        const float index = clampf(fmPv(o, fmIndex) + t1, 0.f, 3.f);
+        const float fbAmt = clampf(fmPv(o, fmFeedback) + t2, 0.f, 1.f);
+        const float bright = clampf(fmPv(o, fmBright) + t3, -1.f, 1.f);
+        const float spreadC = clampf(fmPv(o, fmSpread) + t4, 0.f, 1.f) * 18.f;
+        const float et = clampf(fmPv(o, fmEnvTime), 0.05f, 20.f);
+        const float velIdx = fmPv(o, fmVelIdx);
+        const float idxScale = index * (1.f - velIdx + velIdx * vel * 1.5f) * fastExp2(-fmPv(o, fmKeyIdx) * keyOct * 0.5f);
+        // operators: frequency, envelope, level
+        const bool held = v.gate || v.sustained;
+        const float dtS = (float)n / fs;
+        const float baseHz = semisToHz(semis);
+        float incK[6];
+        for (int k = 0; k < 6; ++k) {
+            float hz;
+            if (fmOpv(o, k, foFixed) >= 0.5f) hz = clampf(fmOpv(o, k, foHz), 1.f, 20000.f);
+            else {
+                const float c = std::floor(fmOpv(o, k, foCoarse) + 0.5f);
+                const float ratio = (c < 0.5f ? 0.5f : c) * (1.f + fmOpv(o, k, foFine));
+                hz = baseHz * ratio * fastExp2((fmOpv(o, k, foDetune) + ov.fmRnd[k] * spreadC) * (1.f / 1200.f));
+            }
+            for (int j = 0; j < nu; ++j) ov.fmInc[j][k] = clampf(hz * fastExp2(uniCents[j] * (1.f / 1200.f)) / fs, 0.f, 0.49f);
+            incK[k] = ov.fmInc[0][k];
+            // envelope (block rate; the render ramps across the block)
+            const float atk = fmOpv(o, k, foAttack) * et, dec = fmOpv(o, k, foDecay) * et, sus = clampf(fmOpv(o, k, foSustain), 0.f, 1.f), rel = fmOpv(o, k, foRelease) * et;
+            float e = ov.fmEnv[k]; int st = ov.fmStage[k];
+            if (!held && st < 3) st = 3;
+            if (st == 0) { e += dtS / std::max(atk, 1e-4f); if (e >= 1.f) { e = 1.f; st = 1; } }
+            else if (st == 1) { e = sus + (e - sus) * std::exp(-dtS * 4.6f / std::max(dec, 1e-4f)); if (std::fabs(e - sus) < 1e-5f) { e = sus; st = 2; } }
+            else if (st == 2) e = sus;
+            else e *= std::exp(-dtS * 6.9f / std::max(rel, 1e-4f));
+            ov.fmEnv[k] = e; ov.fmStage[k] = st;
+            float lv = clampf(fmOpv(o, k, foLevel) + tx[k], 0.f, 1.f);
+            lv *= lv;
+            const float ov_ = fmOpv(o, k, foVel);
+            lv *= 1.f - ov_ + ov_ * vel;
+            lv *= fastExp2(-fmOpv(o, k, foKey) * keyOct);
+            ov.fmE0[k] = ov.fmFresh ? 0.f : ov.fmE1[k];
+            ov.fmE1[k] = e * lv;
+            ov.fmWv[k] = (int)clampf(fmOpv(o, k, foWave) + 0.5f, 0.f, (float)(kFmWaves - 1));
+            ov.fmDc[k] = (A.carriers >> k) & 1 ? fmWaveDc(ov.fmWv[k]) : 0.f;
+        }
+        // scales: carriers -> output gain, modulators -> phase deviation in turns (anti-alias tapered)
+        // carriers: unity for one full-level carrier, power-normalised when several play (smooth in the levels)
+        float cPow = 0.f;
+        for (int k = 0; k < 6; ++k) if ((A.carriers >> k) & 1) { float l = clampf(fmOpv(o, k, foLevel) + tx[k], 0.f, 1.f); l *= l; cPow += l * l; }
+        const float cS = 0.9f / std::sqrt(std::max(1.f, cPow));
+        // operators above Nyquist fade out (an aliased operator is inharmonic in any role)
+        float nyq[6];
+        for (int k = 0; k < 6; ++k) {
+            float mx = 0.f; for (int j = 0; j < nu; ++j) mx = std::max(mx, ov.fmInc[j][k]);
+            nyq[k] = clampf((0.47f - mx) * 25.f, 0.f, 1.f);
+            ov.fmE1[k] *= nyq[k];
+        }
+        // raw scales: carriers -> output gain, modulators -> phase deviation in turns
+        float sc[6];
+        for (int k = 0; k < 6; ++k)
+            sc[k] = (A.carriers >> k) & 1 ? cS : 1.6f * idxScale * fastExp2(bright * 1.2f * (float)(A.depth[k] - 1));
+        const int fbo = A.fbSrc;
+        float fb = 0.32f * fbAmt;
+        // band limit: estimate each operator's highest component (Carson's rule through the chains, feedback as
+        // extra index) and scale every modulation down together until the carriers stay below 0.45 fs
+        float lam = 1.f;
+        const float spreadU = 1.f + detune * 0.0006f;
+        for (int it = 0; it < 3; ++it) {
+            float B[6], worst = 0.f, worstF = 0.f;
+            for (int k = 5; k >= 0; --k) {
+                const float fk = incK[k] * spreadU;
+                float b = fk;
+                for (int m = 5; m > k; --m) if ((A.mods[k] >> m) & 1) {
+                    const float beta = lam * kTwoPi * sc[m] * std::max(ov.fmE0[m], ov.fmE1[m]);
+                    b += (beta + std::min(beta * 4.f, 1.f)) * B[m];
+                }
+                if (k == A.fbDst) b += lam * fb * std::max(ov.fmE0[fbo], ov.fmE1[fbo]) * 8.f * incK[fbo];
+                B[k] = b;
+                if ((A.carriers >> k) & 1 && ov.fmE1[k] > 1e-6f && b - fk > worst - worstF) { worst = b; worstF = fk; }
+            }
+            if (worst <= 0.45f) break;
+            const float room = std::max(0.f, 0.45f - worstF), used = worst - worstF;
+            lam *= std::max(0.f, room / std::max(used, 1e-9f));
+        }
+        for (int k = 0; k < 6; ++k) {
+            const float v = (A.carriers >> k) & 1 ? sc[k] : sc[k] * lam;
+            ov.fmS0[k] = ov.fmFresh ? v : ov.fmS1[k];
+            ov.fmS1[k] = v;
+        }
+        fb *= lam;
+        ov.fmFb0 = ov.fmFresh ? fb : ov.fmFb1; ov.fmFb1 = fb;
+        ov.fmHpR = 1.f - kTwoPi * 8.f / fs;
+        ov.fmFresh = false;
+        v.telT[o][0] = index; v.telT[o][1] = fbAmt; v.telT[o][2] = bright; v.telT[o][3] = spreadC / 18.f;
+    }
+
+    static inline void fmWaveBlock(int w, const float* x, float* y, int n) {
+        switch (w) {
+        case 0: for (int s = 0; s < n; ++s) y[s] = fmSin(x[s]); break;
+        default: for (int s = 0; s < n; ++s) y[s] = fmWave(w, x[s]); break;
+        }
+    }
+    void renderFm(OscVoice& ov, const float* fm, float* L, float* R, float* M, int n) {
+        for (int s = 0; s < n; ++s) { L[s] = 0.f; R[s] = 0.f; M[s] = 0.f; }
+        const drift::FmAlgo& A = drift::fmAlgoDef(ov.fmAlg);
+        const bool epm = fm && fmIsPitch(ov.fmMode) && ov.fmAmt > 0.f;
+        const float epmIdx = ov.fmAmt * ov.fmAmt * 0.6f * fmHard(ov.fmMode);
+        const float inv = 1.f / (float)n;
+        const int fbS = A.fbSrc, fbD = A.fbDst;
+        bool live[6];
+        for (int k = 0; k < 6; ++k) live[k] = ov.fmE0[k] > 1e-7f || ov.fmE1[k] > 1e-7f;
+        // per-sample envelope x level and scale ramps (shared by the unison voices)
+        float E[6][kBlock], S[6][kBlock], FB[kBlock];
+        for (int k = 0; k < 6; ++k) {
+            if (!live[k]) continue;
+            const float dE = (ov.fmE1[k] - ov.fmE0[k]) * inv, dS = (ov.fmS1[k] - ov.fmS0[k]) * inv;
+            for (int s = 0; s < n; ++s) { E[k][s] = ov.fmE0[k] + dE * (float)s; S[k][s] = ov.fmS0[k] + dS * (float)s; }
+        }
+        { const float d = (ov.fmFb1 - ov.fmFb0) * inv; for (int s = 0; s < n; ++s) FB[s] = ov.fmFb0 + d * (float)s; }
+        const float hpR = ov.fmHpR;
+        for (int j = 0; j < ov.nUni; ++j) {
+            float* ph = ov.fmPh[j];
+            const float* inc = ov.fmInc[j];
+            float acc[kBlock];
+            for (int s = 0; s < n; ++s) acc[s] = 0.f;
+            if (fbS == fbD) {
+                // operator-major: every operator renders its whole block, modulators first (op 6 .. 1)
+                float out[6][kBlock];
+                for (int k = 5; k >= 0; --k) {
+                    const float p0 = ph[k], dp = inc[k];
+                    ph[k] = p0 + dp * (float)n; ph[k] -= std::floor(ph[k]);
+                    if (!live[k]) { for (int s = 0; s < n; ++s) out[k][s] = 0.f; continue; }
+                    const bool car = (A.carriers >> k) & 1;
+                    float x[kBlock];
+                    for (int s = 0; s < n; ++s) x[s] = p0 + dp * (float)s;
+                    if (car && epm) for (int s = 0; s < n; ++s) x[s] += epmIdx * fm[s];
+                    const uint8_t mm = A.mods[k];
+                    for (int m = 5; m > k; --m) if ((mm >> m) & 1) for (int s = 0; s < n; ++s) x[s] += out[m][s] * S[m][s];
+                    float w[kBlock];
+                    if (k == fbD && live[fbS]) {
+                        float y1 = ov.fmY1[j], y2 = ov.fmY2[j];
+                        const int wv = ov.fmWv[k];
+                        for (int s = 0; s < n; ++s) {
+                            const float v = fmWave(wv, x[s] + FB[s] * 0.5f * (y1 + y2));
+                            w[s] = v; y2 = y1; y1 = v * std::min(E[k][s], 1.f);
+                        }
+                        ov.fmY1[j] = y1; ov.fmY2[j] = y2;
+                    } else fmWaveBlock(ov.fmWv[k], x, w, n);
+                    for (int s = 0; s < n; ++s) out[k][s] = w[s] * E[k][s];
+                    if (car) { const float dc = ov.fmDc[k]; for (int s = 0; s < n; ++s) acc[s] += (w[s] - dc) * E[k][s] * S[k][s]; }
+                }
+            } else {
+                // a feedback loop across operators (algorithms 4 and 6): sample by sample
+                float y1 = ov.fmY1[j], y2 = ov.fmY2[j];
+                for (int s = 0; s < n; ++s) {
+                    float out[6];
+                    const float ext = epm ? epmIdx * fm[s] : 0.f;
+                    for (int k = 5; k >= 0; --k) {
+                        if (!live[k]) { out[k] = 0.f; continue; }
+                        float pm = ph[k] + inc[k] * (float)s;
+                        const uint8_t mm = A.mods[k];
+                        for (int m = 5; m > k; --m) if ((mm >> m) & 1) pm += out[m] * S[m][s];
+                        if (k == fbD) pm += FB[s] * 0.5f * (y1 + y2);
+                        const bool car = (A.carriers >> k) & 1;
+                        if (car) pm += ext;
+                        const float w = fmWave(ov.fmWv[k], pm);
+                        out[k] = w * E[k][s];
+                        if (car) acc[s] += (w - ov.fmDc[k]) * E[k][s] * S[k][s];
+                        if (k == fbS) { y2 = y1; y1 = w * std::min(E[k][s], 1.f); }
+                    }
+                }
+                ov.fmY1[j] = y1; ov.fmY2[j] = y2;
+                for (int k = 0; k < 6; ++k) { ph[k] += inc[k] * (float)n; ph[k] -= std::floor(ph[k]); }
+            }
+            // DC blocker (1:1 ratios and the asymmetric waves put energy at 0 Hz)
+            float hx = ov.fmHpX[j], hy = ov.fmHpY[j];
+            const float gl = ov.gL[j], gr = ov.gR[j], gm = ov.gM[j];
+            for (int s = 0; s < n; ++s) { const float y = acc[s] - hx + hpR * hy; hx = acc[s]; hy = y; L[s] += y * gl; R[s] += y * gr; M[s] += y * gm; }
+            ov.fmHpX[j] = hx; ov.fmHpY[j] = hy;
+        }
+        postFm(ov, fm, L, R, M, n);
+    }
+
     void renderWavetable(OscVoice& ov, int o, const float* fm, const float* syncW, float* W, float* L, float* R, float* M, int n) {
         const WaveTable& base = slots[o].active ? *slots[o].active : *builtin->banks[ov.bank];
         const WaveTable& T = (ov.blend == 1 && base.spectral) ? *base.spectral : base;
@@ -2695,6 +2946,7 @@ private:
             else if (ov.type == otAnalog) renderAnalog(ov, fm, sw, bW[o], bL[o], bR[o], bM[o], n);
             else if (ov.type == otAdditive) renderAdditive(ov, fm, bL[o], bR[o], bM[o], n);
             else if (ov.type == otSpectral) renderSpectral(ov, o, sc, fm, bL[o], bR[o], bM[o], n);
+            else if (ov.type == otFm) renderFm(ov, fm, bL[o], bR[o], bM[o], n);
             else renderGranular(ov, o, rng, fm, bL[o], bR[o], bM[o], n);
             done[o] = true;
         }

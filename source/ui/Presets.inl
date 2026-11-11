@@ -61,8 +61,8 @@
         randGo = { b.x + 16, b.y + 104, b.w - 32, 32 };
         button(randGo, "MUTATE CURRENT SOUND", false, randGo.contains(hoverX, hoverY), 11, &cWarm);
         label(b.x + 16, b.y + 156, "INIT PATCH", 9, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
-        static const char* const en[kOscTypes] = { "Wavetable", "Analog", "Additive", "Physical", "Granular", "Spectral" };
-        for (int t = 0; t < kOscTypes; ++t) { randInitBtn[t] = { b.x + 16 + t * 66.f, b.y + 170, 62, 26 }; button(randInitBtn[t], en[t], false, randInitBtn[t].contains(hoverX, hoverY), 9); }
+        static const char* const en[kOscTypes] = { "Wavetable", "Analog", "Additive", "Physical", "Granular", "Spectral", "FM" };
+        for (int t = 0; t < kOscTypes; ++t) { randInitBtn[t] = { b.x + 16 + t * 58.f, b.y + 170, 55, 26 }; button(randInitBtn[t], en[t], false, randInitBtn[t].contains(hoverX, hoverY), 9); }
         label(b.x + 16, b.y + 214, "Mutations are undoable (↶). Master, quality and delay stay as they are.", 8, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
     }
     void randomizeClick(float x, float y) {
@@ -75,7 +75,7 @@
         for (int t = 0; t < kOscTypes; ++t) if (randInitBtn[t].contains(x, y)) { initPatch(t); randOpen = false; return; }
     }
     int paramGroup(uint32_t p) const {
-        if (p <= pOscEnd) return 0;
+        if (p <= pOscEnd || isExtParam(p)) return 0;
         if (p >= pSubLevel && p <= pRingSource) return 0;
         if (p >= pF1Type && p <= pFBalance) return 1;
         if (p >= pFEnvA && p <= pMEnvR) return 2;
@@ -87,16 +87,16 @@
         pushUndo(-1);
         uint32_t seed = nowMs() * 2654435761u + 12345u;
         auto rnd = [&]() { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; return (float)(seed >> 8) * (1.f / 16777216.f); };
-        for (uint32_t p = 0; p < kLayerParams; ++p) {      // the edited layer only
+        forEachLayerParam([&](uint32_t p) {      // the edited layer only
             const int g = paramGroup(p);
-            if (g < 0 || !randScope[g]) continue;
-            if (p == pMaster || p == pQuality || p == pPolyphony || p == pDlOn || p == pDlMix || p == pPitch) continue;   // 5.1.6: never transpose
-            if (p <= pOscEnd && (p % kOscFields == ofOn || p % kOscFields == ofLevel)) continue;
-            if (p >= pM1Src && p <= pMLast && (p - pM1Src) % kSlotFields == sfSrc && values[p] < 0.5f && rnd() > randAmt * 0.5f) continue;
+            if (g < 0 || !randScope[g]) return;
+            if (p == pMaster || p == pQuality || p == pPolyphony || p == pDlOn || p == pDlMix || p == pPitch) return;   // 5.1.6: never transpose
+            if (p <= pOscEnd && (p % kOscFields == ofOn || p % kOscFields == ofLevel)) return;
+            if (p >= pM1Src && p <= pMLast && (p - pM1Src) % kSlotFields == sfSrc && values[p] < 0.5f && rnd() > randAmt * 0.5f) return;
             const ParamDef& d = P(p);
             float v;
             if (d.flags & (fInt | fBool)) {
-                if (rnd() > randAmt * 0.6f) continue;
+                if (rnd() > randAmt * 0.6f) return;
                 v = std::round(d.min + rnd() * (d.max - d.min));
             } else {
                 const float n = toNorm(p, values[p]);
@@ -104,7 +104,7 @@
             }
             if (p == pF1Cutoff || p == pF2Cutoff) v = std::max(v, 180.f);
             editParameter(p, true); setParam(p, v); editParameter(p, false);
-        }
+        });
         bool any = false;
         for (int o = 0; o < 3; ++o) any = any || values[oscP(o, ofOn)] >= 0.5f;
         if (!any) setParamUser(oscP(0, ofOn), 1.f);
@@ -113,7 +113,7 @@
     }
     void initPatch(int type) {
         pushUndo(-1);
-        for (uint32_t p = 0; p < kLayerParams; ++p) if (values[p] != P(p).def) { editParameter(p, true); setParam(p, P(p).def); editParameter(p, false); }   // the edited layer only
+        forEachLayerParam([&](uint32_t p) { if (values[p] != P(p).def) { editParameter(p, true); setParam(p, P(p).def); editParameter(p, false); } });   // the edited layer only
         setParamUser(oscP(0, ofType), (float)type);
         setParamUser(oscP(1, ofOn), 0.f);
         setParamUser(pLevelComp, 1.f);      // 6.0 behaviour for new patches
@@ -626,7 +626,7 @@
     }
 
     // ------------------------------------------------------------------ wavetable / sample browser
-    enum BrowserKind { bkTable, bkSample, bkImport, bkTuning, bkAnalyse, bkSpec, bkSpecX, bkFolderWt, bkFolderSmp };   // 6.0: folder pickers (SETUP)
+    enum BrowserKind { bkTable, bkSample, bkImport, bkTuning, bkAnalyse, bkSpec, bkSpecX, bkFolderWt, bkFolderSmp, bkSyx };   // 6.0: folder pickers (SETUP)
     bool sampleKind() const { return browserKind == bkSample || browserKind == bkSpec || browserKind == bkSpecX; }
     int  kindKey(int kind) const { return kind == bkSample ? skSmA : (kind == bkSpec ? skSrcA : (kind == bkSpecX ? skXsrcA : skWtA)); }
     int browserKind = bkTable;
@@ -823,6 +823,7 @@
             flash(("Added folder: " + dir).c_str());
             repaint(); return;
         }
+        if (browserKind == bkSyx) { if (importTarget >= 0) syxSelected(importTarget, filename); browserKind = bkTable; repaint(); return; }
         if (browserKind == bkImport) { if (importTarget >= 0) importSpectrum(importTarget, filename); browserKind = bkTable; repaint(); return; }
         if (browserTarget < 0) return;
         selectFileKind(browserTarget, filename, browserKind);

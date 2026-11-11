@@ -11,6 +11,7 @@
 #include "Shared.hpp"
 #include "Analysis.hpp"
 #include "SpecData.hpp"
+#include "FmAlgos.hpp"
 #include "FontInter.hpp"
 #include <ctime>
 #include <array>
@@ -234,6 +235,7 @@ protected:
     #include "ui/Core.inl"
     #include "ui/Widgets.inl"
     #include "ui/PageMain.inl"
+    #include "ui/FmPanel.inl"
     #include "ui/PageMod.inl"
     #include "ui/PageFxSeq.inl"
     #include "ui/Input.inl"

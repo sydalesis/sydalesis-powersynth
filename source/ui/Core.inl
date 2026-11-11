@@ -9,13 +9,13 @@
     float hostVals[kParamCount];
     std::string hostStates[kStateCount];
     int editLayer = 0;
-    uint32_t hp(uint32_t p) const { return (editLayer == 1 && p < kLayerParams) ? p + kLayerBOffset : p; }
+    uint32_t hp(uint32_t p) const { return (editLayer == 1 && isLayerParam(p)) ? layer2Of(p) : p; }
     int hs(int k) const { return (editLayer == 1 && k >= 0 && k < kLayerStates) ? k + kLayerStates : k; }
     // host index -> view index (-1 when the edited layer does not show it)
     int viewOfParam(uint32_t i) const {
-        if (i < kLayerParams) return editLayer == 0 ? (int)i : -1;
-        if (i < kEngineParams) return (int)i;
-        return editLayer == 1 ? (int)(i - kLayerBOffset) : -1;
+        uint32_t e; const int ly = hostToEngine(i, e);
+        if (ly < 0) return (int)i;
+        return ly == editLayer ? (int)e : -1;
     }
     int viewOfState(int k) const {
         if (k < kLayerStates) return editLayer == 0 ? k : -1;
@@ -48,7 +48,7 @@
     void hostSetParam(uint32_t i, float v) {
         hostVals[i] = v;
         const int vi = viewOfParam(i); if (vi >= 0) values[vi] = v;
-        if (i >= kEngineParams) values[i] = v;
+        if (i >= kEngineParams && !isExtParam(i)) values[i] = v;
         UI::editParameter(i, true); UI::setParameterValue(i, v); UI::editParameter(i, false);
     }
     void hostSetState(int k, const std::string& v) {
@@ -58,7 +58,7 @@
     }
     void setEditLayer(int n) {
         editLayer = n ? 1 : 0;
-        for (uint32_t p = 0; p < kLayerParams; ++p) values[p] = hostVals[p + (editLayer ? kLayerBOffset : 0)];
+        forEachLayerParam([&](uint32_t p) { values[p] = hostVals[editLayer ? layer2Of(p) : p]; });
         for (int k = 0; k < kLayerStates; ++k) { stateValue[k] = hostStates[k + (editLayer ? kLayerStates : 0)]; applyStateLocal(k); }
         lastTelSeq = 0; haveRaw = false; lastCcSeq = 0;
         repaint();
@@ -207,6 +207,7 @@
         if (c.vis >= 0 && c.osc >= 0) {
             const int t = oscType(c.osc);
             if (c.vis == 10) { if (t > otAnalog) return false; }
+            else if (c.vis == 11) { if (t > otAnalog && t != otFm) return false; }   // 6.0: unison on Wavetable, Analog, FM
             else if (t != c.vis) return false;
         }
         if (c.visParam >= 0 && ival((uint32_t)c.visParam) != c.visVal) return false;
@@ -214,7 +215,7 @@
         return true;
     }
     // 4.2 editor-only selections (not saved): which MSEG each MOD card shows, which half of the matrix
-    enum UiKey { ukMsegA, ukMsegB, ukMatrix, ukPerfXY, ukMainMod, kUiKeys };   // 5.1.6: ukMainMod = source shown in the MAIN page's modulator panel
+    enum UiKey { ukMsegA, ukMsegB, ukMatrix, ukPerfXY, ukMainMod, ukFmOpA, ukFmOpB, ukFmOpC, kUiKeys };   // 6.0: the FM operator each osc panel edits   // 5.1.6: ukMainMod = source shown in the MAIN page's modulator panel
     int uiSel[kUiKeys] = {};
     static int msegStateKey(int m) { return m < 2 ? skMseg1 + m : skMseg3 + (m - 2); }
     static int msegSource(int m) { return m < 2 ? msMseg1 + m : msMseg3 + (m - 2); }
@@ -252,7 +253,7 @@
         if (index >= kParamCount) return;
         hostVals[index] = value;
         const int vi = viewOfParam(index); if (vi >= 0) values[vi] = value;
-        if (index >= kEngineParams) values[index] = value;
+        if (index >= kEngineParams && !isExtParam(index)) values[index] = value;
         repaint();
     }
     void programLoaded(uint32_t index) override {
@@ -407,6 +408,8 @@
         if (sym.find("Fade") != std::string::npos && v < 0.001f) { std::snprintf(buf, n, "off"); return; }
         if (sym.find("AdBlur") != std::string::npos && v < 0.001f) { std::snprintf(buf, n, "off"); return; }
         if (sym.find("AdPeakPos") != std::string::npos) { std::snprintf(buf, n, "H%.1f", v); return; }
+        if (sym.find("Fm") != std::string::npos && sym.find("Coarse") != std::string::npos) { std::snprintf(buf, n, v < 0.5f ? "×0.5" : "×%.0f", v); return; }   // 6.0 FM ratio
+        if (sym.find("Fm") != std::string::npos && sym.find("Fine") != std::string::npos) { std::snprintf(buf, n, "+%.2f", v); return; }
         if (p >= pSeqV1 && p <= pSeqVLast && ival(pSeqMode) == 2) { std::snprintf(buf, n, "%+d st", (int)std::floor(v * 24.f + 0.5f)); return; }
         if (p == pFDecCurve || p == pADecCurve || p == pMDecCurve) { if (v == 0.f) std::snprintf(buf, n, "exp"); else std::snprintf(buf, n, v > 0.f ? "fast %.0f%%" : "hold %.0f%%", std::fabs(v) * 100.f); return; }   // 6.0
         if (p == pFRelCurve || p == pARelCurve || p == pMRelCurve) { if (std::fabs(v) < 0.04f) std::snprintf(buf, n, "exp"); else std::snprintf(buf, n, v > 0.f ? "fast %.0f%%" : "hold %.0f%%", std::fabs(v) * 100.f); return; }

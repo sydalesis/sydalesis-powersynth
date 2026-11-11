@@ -25,6 +25,7 @@ IEngine* createEngine(bool forceGeneric)
 {
     IEngine* e = (!forceGeneric && cpuHasAvx2Fma()) ? drift_avx2::create() : drift_generic::create();
     for (uint32_t i = 0; i < kEngineParams; ++i) e->setParam(i, P(i).def);
+    for (uint32_t i = pX0; i < pX0 + kExtParams; ++i) e->setParam(i, P(i).def);
     return e;
 }
 

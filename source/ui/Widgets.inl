@@ -302,7 +302,7 @@
         letterSp(5.5f);
         label(20, 25, "SYDALESIS", 20, cText, ALIGN_LEFT | ALIGN_MIDDLE);
         letterSp(0.f);
-        label(198, 25, "5", 20, cAccent, ALIGN_LEFT | ALIGN_MIDDLE);
+        label(198, 25, "6", 20, cAccent, ALIGN_LEFT | ALIGN_MIDDLE);
         letterSp(1.6f);
         drawLayerSwitch();
         letterSp(0.f);
@@ -338,7 +338,7 @@
         else std::snprintf(buf, sizeof(buf), "%d / %d voices", shared ? tel.activeCount : 0, ival(pPolyphony));
         label(mx, 40, buf, 8.5f, guard > 0 ? cWarn : cDim, ALIGN_LEFT | ALIGN_MIDDLE);
         if (shared && tel.bpm > 0.f) { std::snprintf(buf, sizeof(buf), "%.0f bpm%s", tel.bpm, tel.playing ? " ▶" : ""); label(mx + 100, 40, buf, 8.5f, tel.playing ? cAccent : cFaint, ALIGN_LEFT | ALIGN_MIDDLE); }
-        label(kW - 14, 21, "MPE · v5.1.7", 8.5f, cAccent, ALIGN_RIGHT | ALIGN_MIDDLE);
+        label(kW - 14, 21, "MPE · v6.0.0", 8.5f, cAccent, ALIGN_RIGHT | ALIGN_MIDDLE);
 
         const float cur = currentRelativeScale();
         static const char* const lbl[4] = { "75", "90", "100", "125" };

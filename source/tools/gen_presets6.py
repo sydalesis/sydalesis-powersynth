@@ -138,6 +138,137 @@ RC6['Analog'] = rc6(dict(RC5['Pads'], cat='Analog', variant='an6',
     styles=['roach', 'vangelis', 'analog'], moods=['analog', 'warm', 'vintage', 'polyphonic', 'brass', 'strings', 'classic', 'nostalgic'], tags=('analog',)),
     dcurve=(-0.4, 0.2), fm=0.15, fm_style='keys')
 
+
+# ------------------------------------------------------------------------------------------------ 6.0 FM oscillator layers
+def _fm_carriers():
+    """carriers of the 32 algorithms, read from FmAlgos.hpp (the engine's own table)"""
+    src = open(os.path.join(SRC, 'FmAlgos.hpp')).read()
+    out = []
+    for m in re.finditer(r'\{ \{ ((?:\{\d,\d\},?)+) \}, (\d), (\d), (\d) \},\s*// (\d+)', src):
+        edges = [tuple(map(int, e)) for e in re.findall(r'\{(\d),(\d)\}', m.group(1))][:int(m.group(2))]
+        mods = {a for a, b in edges}
+        out.append({k for k in range(6) if (k + 1) not in mods})
+    assert len(out) == 32, len(out)
+    return out
+FM_CARRIERS = _fm_carriers()
+g3.TYPES['fm'] = 6
+g3.ENGINE_TAG[6] = 'fm'
+NS['LEVEL_BOOST']['fm'] = 1.0
+TX['fm'] = []
+
+def _fm_env(c, carrier):
+    """carrier envelopes follow the category's amp envelope character (the amp env still shapes the note)"""
+    r, rc = c.r, c.rc
+    a, d, s, rr = rc['env']
+    plucky = s[1] <= 0.5
+    if plucky: return (_u(r, 0.001, 0.006), _u(r, d[0], d[1]) * _u(r, 0.8, 1.5), _u(r, 0.0, 0.12), _u(r, 0.3, 2.0))
+    return (_u(r, 0.003, 0.03), _u(r, 3, 12), _u(r, 0.6, 0.95), _u(r, 3, 10))
+
+def lay_fm(c, o, style, oct=0, level=0.5, semi=0):
+    r, p, rc = c.r, c.p, c.rc
+    pre = g3.OSC[o]
+    voices = _ch(r, [1, 1, 2, 2, 3]) if style in ('pad', 'evolving', 'glass', 'dark') else _ch(r, [1, 1, 2])
+    p.osc(o, 'fm', level=_t(level), oct=oct, semi=semi, fine=_t(_u(r, -4, 4), 1), pan=_t(_u(r, -0.25, 0.25)), voices=voices,
+          detune=_t(_u(r, 3, 9), 1), width=_t(_u(r, 0.5, 1.0)))
+    plucky = rc['env'][2][1] <= 0.5
+    ops = [None] * 6        # (coarse, fine, level, (A, D, S, R), detune, vel, key, wave)
+    def car(k, ratio, lvl, det=0.0):
+        cf, ff = (int(ratio), ratio - int(ratio)) if ratio >= 1 else (0, 0.0)
+        ops[k] = (cf, ff, lvl, _fm_env(c, True), det, _u(r, 0.0, 0.3), 0.0, 0)
+    def mod(k, ratio, lvl, env, det=0.0, vel=None, key=None, wave=0):
+        cf, ff = (int(ratio), ratio - int(ratio)) if ratio >= 1 else (0, 0.0)
+        ops[k] = (cf, ff, lvl, env, det, _u(r, 0.2, 0.6) if vel is None else vel, _u(r, 0.0, 0.35) if key is None else key, wave)
+    slow = lambda: (_u(r, 1.0, 6.0), _u(r, 5, 15), _u(r, 0.3, 0.75), _u(r, 4, 10))
+    bellmod = lambda: (_u(r, 0.001, 0.01), _u(r, 0.5, 3.0), _u(r, 0.0, 0.12), _u(r, 1.0, 4.0))
+    held = lambda: (_u(r, 0.01, 0.3), _u(r, 2, 8), _u(r, 0.4, 0.8), _u(r, 3, 8))
+    fb, idx, bright, spread, vidx = 0.0, _u(r, 0.7, 1.1), 0.0, _u(r, 0.0, 0.25), _u(r, 0.1, 0.4)
+    if style == 'glass':
+        alg = 4
+        d = _u(r, 2, 6)
+        car(0, 1, 1.0, -d); car(2, _ch(r, [1, 2, 2, 3]), _u(r, 0.4, 0.7), d); car(4, _ch(r, [1, 4, 0.5]), _u(r, 0.2, 0.45), 0.0)
+        for k in (1, 3, 5): mod(k, _ch(r, [1, 2, 3, 4]), _u(r, 0.15, 0.38), held())
+    elif style == 'bell':
+        alg = _ch(r, [4, 4, 6])
+        car(0, 1, 1.0); car(2, _ch(r, [3.5, 2.76, 4.2]), _u(r, 0.3, 0.55)); car(4, _ch(r, [0.5, 1, 2]), _u(r, 0.2, 0.4))
+        for k, rt in ((1, _ch(r, [3.5, 1.41, 2.76])), (3, _ch(r, [1.41, 5.19, 7])), (5, _ch(r, [1, 3.5, 2]))):
+            mod(k, rt, _u(r, 0.28, 0.5), bellmod(), vel=_u(r, 0.4, 0.8))
+        vidx = _u(r, 0.3, 0.6)
+    elif style == 'pad':
+        alg = _ch(r, [0, 13, 15, 17])
+        for k in range(6): mod(k, _ch(r, [1, 1, 2, 3]), _u(r, 0.12, 0.32), slow())
+        car(0, 1, 1.0)
+        spread = _u(r, 0.15, 0.45)
+    elif style == 'evolving':
+        alg = _ch(r, [1, 2, 10])
+        for k in range(6): mod(k, 1 + _ch(r, [0.004, 0.007, 0.011, 0.017, 1.0, 2.0]), _u(r, 0.15, 0.35), slow())
+        car(0, 1, 1.0)
+        idx = _u(r, 0.6, 1.0); spread = _u(r, 0.1, 0.35)
+    elif style == 'dark':
+        alg = _ch(r, [0, 4, 13])
+        for k in range(6): mod(k, _ch(r, [0.5, 1, 1, 1.5]), _u(r, 0.12, 0.3), slow())
+        car(0, _ch(r, [0.5, 1]), 1.0)
+        bright = _u(r, -0.7, -0.25); idx = _u(r, 0.5, 0.9)
+    elif style == 'organ':
+        alg = _ch(r, [31, 31, 24])
+        bars = r.sample([0.5, 1, 2, 3, 4, 6, 8], 6)
+        for k in range(6): car(k, bars[k], _u(r, 0.25, 0.8) if bars[k] <= 2 else _u(r, 0.1, 0.4))
+        ops[0] = (1, 0.0, 1.0) + ops[0][3:]
+        fb = _u(r, 0.0, 0.12)
+    else:   # 'epiano'
+        alg = 4
+        car(0, 1, 1.0); car(2, 1, _u(r, 0.4, 0.6))
+        mod(1, 1, _u(r, 0.3, 0.45), (_u(r, 0.001, 0.005), _u(r, 1.0, 2.5), _u(r, 0.05, 0.2), 1.5), vel=_u(r, 0.5, 0.8))
+        mod(3, 14, _u(r, 0.12, 0.22), (0.001, _u(r, 0.15, 0.4), 0.0, 0.3), vel=_u(r, 0.6, 0.9), key=_u(r, 0.3, 0.6))
+        ops[4] = ops[5] = None
+        vidx = _u(r, 0.4, 0.7)
+    # the algorithm decides who is a carrier: every op that is a carrier there gets a carrier envelope
+    carriers = FM_CARRIERS[alg]
+    for k in range(6):
+        if ops[k] is None: ops[k] = (1, 0.0, 0.0, (0.01, 2, 0.8, 1), 0.0, 0.0, 0.0, 0); continue
+        cf, ff, lv, env, det, vel, key, wave = ops[k]
+        if k in carriers and style not in ('organ',):
+            if k != 0 and style in ('pad', 'evolving', 'dark'): lv = _u(r, 0.0, 0.35) if _p(r, 0.5) else 0.0   # extra carriers: quiet or off
+            env = _fm_env(c, True)
+            key = 0.0
+        elif k in carriers:
+            env = _fm_env(c, True)
+            env = (env[0], max(env[1], 4.0), max(env[2], 0.85), env[3]) if not plucky else env    # drawbars hold
+        else:
+            if plucky and style in ('pad', 'evolving', 'dark', 'glass'): env = bellmod()
+        A, D, S, R = env
+        n = str(k + 1)
+        p.set(pre + 'Fm' + n + 'Coarse', cf).set(pre + 'Fm' + n + 'Fine', _t(ff)).set(pre + 'Fm' + n + 'Level', _t(lv))
+        p.set(pre + 'Fm' + n + 'Atk', _t(max(0.001, A), 3)).set(pre + 'Fm' + n + 'Dec', _t(max(0.005, D), 3)).set(pre + 'Fm' + n + 'Sus', _t(S))
+        p.set(pre + 'Fm' + n + 'Rel', _t(max(0.005, R), 3)).set(pre + 'Fm' + n + 'Detune', _t(det, 1)).set(pre + 'Fm' + n + 'Vel', _t(vel))
+        p.set(pre + 'Fm' + n + 'Key', _t(key)).set(pre + 'Fm' + n + 'Wave', wave)
+    p.set(pre + 'FmAlgo', alg).set(pre + 'FmFeedback', _t(fb)).set(pre + 'FmIndex', _t(idx)).set(pre + 'FmBright', _t(bright))
+    p.set(pre + 'FmSpread', _t(spread)).set(pre + 'FmVelIdx', _t(vidx)).set(pre + 'FmKeyIdx', _t(_u(r, 0.0, 0.3)))
+    c.kind[o] = 'fm'; c.engines.append('fm:' + style)
+    c.flags.add('fm')
+    c.targets += [(o + 't1', 0.08, 0.3), (o + 'level', 0.1, 0.25)]
+    if style != 'organ':
+        mods = [k for k in range(6) if k not in carriers and ops[k][2] > 0][:2]
+        for k in mods: c.targets.append((o + 't%d' % (5 + k), 0.05, 0.18))
+    if style in ('dark', 'pad', 'evolving'): c.targets.append((o + 't3', 0.1, 0.3))
+NS['LAYERS']['fm'] = lay_fm
+
+FM_MENU = {   # styles, weight in the first layer's menu, weight in the other layers' menus
+    'Bells & Resonators': (['bell', 'bell', 'glass'], 2, 1.5), 'Keys & Organs': (['organ', 'epiano', 'epiano', 'bell', 'glass'], 2, 1),
+    'Pads': (['pad', 'glass', 'evolving'], 1, 1), 'Deep Space': (['evolving', 'glass', 'pad'], 1, 1), 'Drones': (['evolving', 'dark', 'organ'], 1, 1),
+    'Atmospheres': (['pad', 'evolving'], 1, 0.7), 'Dark Ambient': (['dark', 'evolving'], 1, 0.7), 'Sequence & Plucks': (['bell', 'glass', 'epiano'], 1.5, 0.7),
+    'Berlin Sequences': (['bell', 'epiano'], 0.7, 0.4), 'Basses': (['dark', 'epiano'], 0.5, 0.3), 'Leads': (['glass', 'organ'], 0.5, 0.4),
+    'Just Intonation': (['organ', 'glass', 'evolving'], 1, 0.7), 'Ritual & Tribal': (['bell', 'dark'], 0.5, 0.4), 'Sweeps': (['evolving'], 0.4, 0.3),
+    'Performance': (['evolving', 'pad'], 0.5, 0.4),
+    # engine-defined sections: FM only as a supporting layer
+    'Textures': (['evolving', 'bell'], 0, 0.6), 'Spectral': (['evolving'], 0, 0.5), 'Choirs & Voices': (['pad'], 0, 0.5),
+    'Physical Models': (['bell'], 0, 0.6), 'FX & Details': (['bell', 'evolving'], 0, 0.6), 'Soundscapes': (['evolving'], 0, 0.4),
+    'Winds & Reeds': (['organ'], 0, 0.4),
+}
+for _k, (_st, _wa, _wb) in FM_MENU.items():
+    _rc = RC6[_k]
+    _a = list(_rc['menuA']); _b = list(_rc.get('menuB', _a)); _c = list(_rc.get('menuC', _rc.get('menuB', _a)))
+    _rc['menuA'] = _a + ([('fm', _st, _wa)] if _wa else []); _rc['menuB'] = _b + [('fm', _st, _wb)]; _rc['menuC'] = _c + [('fm', _st, _wb)]
+
 PHASE_KINDS = ('an', 'wt')
 
 def _slot_list(p):

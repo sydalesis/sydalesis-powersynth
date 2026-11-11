@@ -2,3 +2,6 @@ dpf/
 dist/
 source/build/
 source/bin/
+source/tools/__pycache__/
+source/tools/preset_levels6.part*.json
+source/test/*_tmp.cpp

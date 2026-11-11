@@ -488,6 +488,7 @@
                     return true;
                 }
             }
+            if (type == otFm && fmClick(o, mx, my)) return true;
             if (type == otAdditive) {
                 if (specEdit[o].contains(mx, my)) { initCustomFromCurrent(o); return true; }
                 if (specImport[o].contains(mx, my)) { openImport(o); return true; }

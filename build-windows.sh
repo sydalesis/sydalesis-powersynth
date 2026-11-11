@@ -5,7 +5,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 ROOT="$PWD"
-VERSION="5.1.7"
+VERSION="6.0.0"
 DPF_COMMIT=4238e1c7f0351bbe488d79f0899c540543ac7583
 if [ ! -d dpf ]; then git clone --recursive https://github.com/DISTRHO/DPF.git dpf; fi
 ( cd dpf && git checkout -q "$DPF_COMMIT" && git submodule update --init --recursive -q && git checkout -q -- . && git apply "$ROOT/source/dpf-sydalesis.patch" )

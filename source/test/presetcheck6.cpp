@@ -80,12 +80,22 @@ int main(int argc, char** argv) {
         const bool layered = pv[pLyMode] >= 0.5f;
         pv[kLayerBOffset + pMaster] = -6.f + (pv[kLayerBOffset + pMaster] - pv[pMaster]);   // keep layer 2's balance
         pv[pMaster] = -6.f;
+        if (const char* q = std::getenv("DF_SET")) {    // QA: "sym=val,sym=val" overrides
+            std::string all(q); size_t at = 0;
+            while (at < all.size()) {
+                size_t e = all.find(',', at); if (e == std::string::npos) e = all.size();
+                const std::string kv = all.substr(at, e - at); const size_t eq = kv.find('=');
+                if (eq != std::string::npos) { const int i = ParamRegistry::get().findSymbol(kv.substr(0, eq).c_str()); if (i >= 0) pv[i] = (float)std::atof(kv.c_str() + eq + 1); }
+                at = e + 1;
+            }
+        }
         std::string st[kStateCount]; presetStates(pi, st);
         bool missing = false;
         auto setup = [&](drift::IEngine* en, int layer) {
             const uint32_t po = layer ? kLayerBOffset : 0; const int so = layer ? kLayerStates : 0;
             en->reset();
             for (uint32_t i = 0; i < kEngineParams; ++i) en->setParam(i, pv[i < kLayerParams ? i + po : i]);
+            for (uint32_t i = pX0; i < pX0 + kExtParams; ++i) en->setParam(i, pv[layer ? layer2Of(i) : i]);   // 6.0 extension block (FM)
             for (int o = 0; o < 3; ++o) {
                 if (!st[so + skWtA + o].empty()) { drift::WaveTable* t = drift::loadWavetableFile(drift::lib::resolve(st[so + skWtA + o]).c_str(), false); if (!t) missing = true; en->postTable(o, t); }
                 else en->postTable(o, nullptr);

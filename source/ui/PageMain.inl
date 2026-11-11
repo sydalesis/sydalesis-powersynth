@@ -7,7 +7,7 @@
             const float px = 10.f + o * 396.f, py = oscY;
             oscX[o] = px;
             panel({ px, py, 390, 410 }, oscTitles[o], pgMain);
-            for (int t = 0; t < kOscTypes; ++t) typeTab[o][t] = { px + 58 + t * 48.f, py + 8, 46, 21 };
+            for (int t = 0; t < kOscTypes; ++t) typeTab[o][t] = { px + 58 + t * 41.f, py + 8, 39, 21 };   // 6.0: seven engines
             onBtn[o] = { px + 346, py + 8, 36, 21 };
             engDisp[o] = { px + 12, py + 68, 366, 132 };
             tablePrev[o] = { px + 12, py + 38, 22, 24 }; tableBox[o] = { px + 36, py + 38, 318, 24 }; tableNext[o] = { px + 356, py + 38, 22, 24 };
@@ -68,6 +68,26 @@
                 static const char* const l[9] = { "POSITION", "SCAN", "SIZE", "DENSITY", "SPRAY", "PITCH RND", "SHAPE", "SPREAD", "REVERSE" };
                 for (int i = 0; i < 9; ++i) { Ctl& c = knob(oscP(o, f[i]), px + 28 + i * 41.5f, py + 250, 13, l[i], pgMain); c.osc = o; c.vis = otGranular; }
             }
+            // 6.0 FM: algorithm + DX7 bank, diagram, operator tabs, operator rows, oscillator-wide row
+            {
+                { Ctl& c = selector(fmP(o, fmAlgo), { px + 12, py + 38, 96, 24 }, true, pgMain); c.osc = o; c.vis = otFm; }
+                fmSyxBtn[o] = { px + 112, py + 38, 38, 24 };
+                fmVoicePrev[o] = { px + 154, py + 38, 22, 24 }; fmVoiceBox[o] = { px + 178, py + 38, 176, 24 }; fmVoiceNext[o] = { px + 356, py + 38, 22, 24 };
+                fmDiag[o] = { px + 12, py + 68, 214, 124 }; fmEnvView[o] = { px + 230, py + 68, 148, 124 };
+                for (int k = 0; k < 6; ++k) fmOpTab[o][k] = { px + 12 + k * 40.f, py + 198, 38, 18 };
+                for (int k = 0; k < 6; ++k) {
+                    const uint32_t f1[9] = { foCoarse, foFine, foDetune, foHz, foLevel, foAttack, foDecay, foSustain, foRelease };
+                    static const char* const l1[9] = { "RATIO", "FINE", "DETUNE", "FIX HZ", "LEVEL", "ATTACK", "DECAY", "SUSTAIN", "RELEASE" };
+                    for (int i = 0; i < 9; ++i) { Ctl& c = knob(fmOpP(o, k, f1[i]), px + 28 + i * 41.5f, py + 234, 11, l1[i], pgMain); c.osc = o; c.vis = otFm; c.uiKey = ukFmOpA + o; c.uiVal = k; }
+                    { Ctl& c = tog(fmOpP(o, k, foFixed), { px + 254, py + 198, 40, 18 }, "FIX", pgMain); c.osc = o; c.vis = otFm; c.uiKey = ukFmOpA + o; c.uiVal = k; }
+                    { Ctl& c = selector(fmOpP(o, k, foWave), { px + 298, py + 198, 80, 18 }, true, pgMain); c.osc = o; c.vis = otFm; c.uiKey = ukFmOpA + o; c.uiVal = k; }
+                    { Ctl& c = knob(fmOpP(o, k, foVel), px + 28, py + 278, 11, "VEL", pgMain); c.osc = o; c.vis = otFm; c.uiKey = ukFmOpA + o; c.uiVal = k; }
+                    { Ctl& c = knob(fmOpP(o, k, foKey), px + 69.5f, py + 278, 11, "KEY", pgMain); c.osc = o; c.vis = otFm; c.uiKey = ukFmOpA + o; c.uiVal = k; }
+                }
+                const uint32_t g[7] = { fmIndex, fmFeedback, fmBright, fmSpread, fmEnvTime, fmVelIdx, fmKeyIdx };
+                static const char* const gl[7] = { "INDEX", "FEEDBACK", "BRIGHT", "SPREAD", "ENV TIME", "VEL>IDX", "KEY>IDX" };
+                for (int i = 0; i < 7; ++i) { Ctl& c = knob(fmP(o, g[i]), px + 28 + (i + 2) * 41.5f, py + 278, 11, gl[i], pgMain); c.osc = o; c.vis = otFm; }
+            }
             // FM / sync row
             { Ctl& c = selector(oscP(o, ofFmSrc), { px + 36, py + 306, 72, 20 }, false, pgMain); c.osc = o; }
             { Ctl& c = selector(oscP(o, ofFmMode), { px + 112, py + 306, 58, 20 }, false, pgMain); c.osc = o; }
@@ -79,7 +99,7 @@
             // common row
             const uint32_t cf[8] = { ofLevel, ofPan, ofOct, ofSemi, ofFine, ofVoices, ofDetune, ofUniWidth };
             static const char* const cl[8] = { "LEVEL", "PAN", "OCT", "SEMI", "FINE", "VOICES", "DETUNE", "WIDTH" };
-            for (int i = 0; i < 8; ++i) { Ctl& c = knob(oscP(o, cf[i]), px + 30 + i * 47.f, py + 366, 13, cl[i], pgMain); c.osc = o; c.vis = i >= 5 ? 10 : -1; }
+            for (int i = 0; i < 8; ++i) { Ctl& c = knob(oscP(o, cf[i]), px + 30 + i * 47.f, py + 366, 13, cl[i], pgMain); c.osc = o; c.vis = i >= 5 ? 11 : -1; }
         }
         // mixer / voice / MPE
         {
@@ -163,10 +183,10 @@
     }
 
     void drawOscPanel(int o) {
-        static const char* const tabNames[kOscTypes] = { "WAVE", "ANALOG", "ADD", "PHYS", "GRAIN", "SPEC" };
+        static const char* const tabNames[kOscTypes] = { "WAVE", "ANALOG", "ADD", "PHYS", "GRAIN", "SPEC", "FM" };
         const int type = oscType(o);
         const float px = oscX[o], py = oscY;
-        for (int t = 0; t < kOscTypes; ++t) button(typeTab[o][t], tabNames[t], t == type, hovered(typeTab[o][t]), 8.8f);
+        for (int t = 0; t < kOscTypes; ++t) button(typeTab[o][t], tabNames[t], t == type, hovered(typeTab[o][t]), 8.2f);
         {
             const bool on = values[oscP(o, ofOn)] >= 0.5f, hot = hovered(onBtn[o]);
             const Rect& ob = onBtn[o];
@@ -211,6 +231,8 @@
         } else if (type == otSpectral) {
             drawSpecBoxes(o);
             save(); scissor(d.x, d.y, d.w, d.h); drawSpectral(o, d); restore();   // 5.1.1: nothing paints outside the display
+        } else if (type == otFm) {
+            drawFmPanel(o);
         } else {
             if (ival(oscP(o, ofGrSource)) == 0) drawTableBox(o, smpPrev[o], smpBox[o], smpNext[o]);
             else drawSampleBox(o);

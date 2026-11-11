@@ -185,6 +185,7 @@
         if (!debugHookDone) {   // test hook (screenshots / QA): SYD_DEBUG_PRESET=<index> SYD_DEBUG_PAGE=<page>; nothing when unset
             debugHookDone = true;
             if (const char* e = std::getenv("SYD_DEBUG_PRESET")) loadAnyPreset(std::atoi(e));
+            if (const char* e = std::getenv("SYD_DEBUG_FM")) { const int a = std::atoi(e); for (int o = 0; o < 3; ++o) setParamUser(oscP(o, ofType), (float)otFm); setParamUser(fmP(0, fmAlgo), (float)a); setParamUser(fmP(1, fmAlgo), (float)((a + 10) % 32)); setParamUser(fmP(2, fmAlgo), 31.f); uiSel[ukFmOpB] = 3; }
             if (const char* e = std::getenv("SYD_DEBUG_PAGE")) { page = std::max(0, std::min((int)kPages - 1, std::atoi(e))); dirty = true; }
         }
         if (perfTick()) dirty = true;

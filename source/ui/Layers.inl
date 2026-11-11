@@ -156,22 +156,24 @@
     // ---- layer management ----------------------------------------------------------------------
     void copyLayer(int from, int to) {
         pushUndo(-1);
-        const uint32_t fo = from ? kLayerBOffset : 0, tof = to ? kLayerBOffset : 0;
-        for (uint32_t p = 0; p < kLayerParams; ++p) if (hostVals[p + tof] != hostVals[p + fo]) hostSetParam(p + tof, hostVals[p + fo]);
+        forEachLayerParam([&](uint32_t p) {
+            const uint32_t a = from ? layer2Of(p) : p, b = to ? layer2Of(p) : p;
+            if (hostVals[b] != hostVals[a]) hostSetParam(b, hostVals[a]);
+        });
         for (int k = 0; k < kLayerStates; ++k) { const int a = k + from * kLayerStates, b = k + to * kLayerStates; if (hostStates[b] != hostStates[a]) hostSetState(b, std::string(hostStates[a])); }
         layerNames[to] = layerNames[from];
         publishLayerNames();
     }
     void swapLayers() {
         pushUndo(-1);
-        for (uint32_t p = 0; p < kLayerParams; ++p) { const float a = hostVals[p], b = hostVals[p + kLayerBOffset]; if (a != b) { hostSetParam(p, b); hostSetParam(p + kLayerBOffset, a); } }
+        forEachLayerParam([&](uint32_t p) { const uint32_t q = layer2Of(p); const float a = hostVals[p], b = hostVals[q]; if (a != b) { hostSetParam(p, b); hostSetParam(q, a); } });
         for (int k = 0; k < kLayerStates; ++k) { const std::string a = hostStates[k], b = hostStates[k + kLayerStates]; if (a != b) { hostSetState(k, b); hostSetState(k + kLayerStates, a); } }
         std::swap(layerNames[0], layerNames[1]);
         publishLayerNames();
     }
     void clearLayer2() {
         pushUndo(-1);
-        for (uint32_t p = 0; p < kLayerParams; ++p) if (hostVals[p + kLayerBOffset] != P(p).def) hostSetParam(p + kLayerBOffset, P(p).def);
+        forEachLayerParam([&](uint32_t p) { const uint32_t q = layer2Of(p); if (hostVals[q] != P(p).def) hostSetParam(q, P(p).def); });
         for (int k = 0; k < kLayerStates; ++k) if (!hostStates[k + kLayerStates].empty()) hostSetState(k + kLayerStates, "");
         layerNames[1].clear();
         publishLayerNames();
@@ -189,8 +191,7 @@
             if (!presetFromText(ss.str(), pv, st, &name, &cat, &tags)) return;
         }
         pushUndo(-1);
-        const uint32_t off = to ? kLayerBOffset : 0;
-        for (uint32_t p = 0; p < kLayerParams; ++p) if (hostVals[p + off] != pv[p]) hostSetParam(p + off, pv[p]);
+        forEachLayerParam([&](uint32_t p) { const uint32_t q = to ? layer2Of(p) : p; if (hostVals[q] != pv[p]) hostSetParam(q, pv[p]); });
         for (int k = 0; k < kLayerStates; ++k) if (hostStates[k + to * kLayerStates] != st[k]) hostSetState(k + to * kLayerStates, st[k]);
         if (to == 1 && lyMode() == 0) hostSetParam(pLyMode, 1.f);
         layerNames[to] = entryName(idx);
