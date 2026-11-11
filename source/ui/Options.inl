@@ -181,6 +181,11 @@
             if (page == pgSetup) dirty = true;
         }
         tickMidiLearn();
+        if (!debugHookDone) {   // test hook (screenshots / QA): SYD_DEBUG_PRESET=<index> SYD_DEBUG_PAGE=<page>; nothing when unset
+            debugHookDone = true;
+            if (const char* e = std::getenv("SYD_DEBUG_PRESET")) loadAnyPreset(std::atoi(e));
+            if (const char* e = std::getenv("SYD_DEBUG_PAGE")) { page = std::max(0, std::min((int)kPages - 1, std::atoi(e))); dirty = true; }
+        }
         if (perfTick()) dirty = true;
         if (page == pgLayer && shared) dirty = true;   // layer meters
         if (shared && shared->guardOn.load() != (optGuard ? 1 : 0)) shared->guardOn.store(optGuard ? 1 : 0);
@@ -188,6 +193,7 @@
         if (dirty || sd == sdAssign) repaint();
     }
     int lastGuardCap = 0;
+    bool debugHookDone = false;
 
     // ------------------------------------------------------------------ SETUP page
     Rect skinTile[kSkinCount], optRefreshBtn[kRefreshCount], optSmoothBtn[3], optPredictBtn[2], optTipsBtn[2], optLiveBtn[2], optGuardBtn[2], optThreadsBtn[4], optTextBtn[3];

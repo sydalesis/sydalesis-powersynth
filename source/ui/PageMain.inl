@@ -218,8 +218,17 @@
         }
         label(px + 14, py + 316, "FM", 8.5f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
         if (type <= otAnalog) label(px + 296, py + 316, "SYNC", 8.5f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
-        else if (values[oscP(o, ofFmAmt)] > 0.f && ival(oscP(o, ofFmMode)) <= 1 && (type == otAdditive || type == otPhysical))
-            label(px + 296, py + 316, "AM/Ring only", 8, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
+        // 6.0: what FM does on the engines without a single cycle (Additive, Physical, Spectral: on the output)
+        if ((type == otAdditive || type == otPhysical || type == otSpectral) && ival(oscP(o, ofFmSrc)) > 0 && values[oscP(o, ofFmAmt)] > 0.f) {
+            const int md = ival(oscP(o, ofFmMode));
+            const bool pitch = md <= 1 || md >= 4;
+            const bool on = !pitch || (ival(pFmV6) & (1 << o));
+            char b[96];
+            if (on) std::snprintf(b, sizeof b, "%s %.0f%% from %s%s", kFmModeNames[std::max(0, std::min(5, md))], values[oscP(o, ofFmAmt)] * 100.f,
+                                  kFmSrcNames[std::max(0, std::min(5, ival(oscP(o, ofFmSrc))))], pitch ? "  (bends the whole output)" : "");
+            else std::snprintf(b, sizeof b, "PM / FM silent in this 5.x preset: touch the FM controls to turn it on");
+            label(d.x + 8, d.y + d.h - 9, b, 7.6f, on ? cViolet : cWarm, ALIGN_LEFT | ALIGN_MIDDLE);
+        }
         char hint[128];
         std::snprintf(hint, sizeof(hint), "TIMBRE  1 %s · 2 %s · 3 %s · 4 %s", kTimbreNames[type][0], kTimbreNames[type][1], kTimbreNames[type][2], kTimbreNames[type][3]);
         label(px + 14, py + 340, hint, 7.4f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
@@ -337,6 +346,7 @@
         const float dpos = lpos * (t.frames - 1);
         drawFrame(dpos, lpos, withA(cAccent, 0.25f), 4.f, true);
         drawFrame(dpos, lpos, cAccent, 1.6f, true);
+        drawModPreview(o, { x0 + lpos * depthX, r.y, w, r.h }, 1, baseY - lpos * depthY, amp);   // 6.0: on the front frame
         restore();
         const float bx = r.x + 10, bw = r.w - 20, by = r.y + r.h - 7;
         beginPath(); roundedRect(bx, by, bw, 3, 1.5f); fillColor(shade(36.f)); fill();
@@ -361,6 +371,77 @@
         }
     }
 
+    // ---- 6.0 visual feedback ------------------------------------------------------------------------------
+    // one cycle of an oscillator as the editor sees it (Analog: the naive shape; Wavetable: the frame at the
+    // position, warped); other engines: a sine (their PM / FM preview shows the index, not their timbre)
+    float oscCycleUi(int o, float q) {
+        q -= std::floor(q);
+        const int t = oscType(o);
+        if (t == otAnalog) {
+            const float pw = values[oscP(o, ofAnPW)];
+            switch (ival(oscP(o, ofAnWave))) {
+            case 0: case 5: return 2.f * q - 1.f;
+            case 1: return q < pw ? 1.f : -1.f;
+            case 2: return 0.5f * ((2.f * q - 1.f) + (q < pw ? 1.f : -1.f));
+            case 3: return q < 0.5f ? 4.f * q - 1.f : 3.f - 4.f * q;
+            default: return std::sin(2.f * kPi * q);
+            }
+        }
+        if (t == otWavetable) {
+            const drift::WaveTable& tb = tableFor(o);
+            if (tb.frames <= 0) return 0.f;
+            const int warp = ival(oscP(o, ofWarp)); const float wa = values[oscP(o, ofWarpAmt)];
+            float sg = 1.f;
+            if (warp) { if (warp == 9 && q >= 1.f - 0.5f * wa) sg = -1.f; q = warpUi(warp, q, wa); }
+            const int f = std::max(0, std::min(tb.frames - 1, (int)std::round(values[oscP(o, ofPos)] * (tb.frames - 1))));
+            int si = (int)(q * drift::kWtSize); si = std::max(0, std::min(drift::kWtSize - 1, si));
+            return tb.table(f, 0)[si] * sg;
+        }
+        return std::sin(2.f * kPi * q);
+    }
+    float oscSemisUi(int o) const { return values[oscP(o, ofOct)] * 12.f + values[oscP(o, ofSemi)] + values[oscP(o, ofFine)] * 0.01f; }
+    // FM / PM / AM / Ring drawn on the waveform display (violet: the carrier as the modulator bends it), and the
+    // retrigger start phase. x spans r.x .. r.x + r.w for `cycles` cycles around the centre line cy.
+    void drawModPreview(int o, const Rect& r, int cycles, float cy, float amp) {
+        if (values[oscP(o, ofRetrig)] >= 0.5f) {
+            const float ph = values[oscP(o, ofPhase)];
+            for (int c = 0; c < cycles; ++c) {
+                const float x = r.x + r.w * (c + ph) / cycles;
+                beginPath(); moveTo(x, cy - amp * 1.15f); lineTo(x, cy + amp * 1.15f); strokeColor(withA(cWarm, 0.55f)); strokeWidth(1); stroke();
+                beginPath(); moveTo(x - 4, cy + amp * 1.15f + 6); lineTo(x + 4, cy + amp * 1.15f + 6); lineTo(x, cy + amp * 1.15f); closePath(); fillColor(withA(cWarm, 0.8f)); fill();
+            }
+        }
+        const int src = ival(oscP(o, ofFmSrc));
+        const float a = values[oscP(o, ofFmAmt)];
+        if (src <= 0 || a <= 0.f) return;
+        const int mode = ival(oscP(o, ofFmMode));
+        const float hard = mode >= 4 ? 4.f : 1.f;
+        const float ratio = src <= 3 ? std::pow(2.f, (oscSemisUi(src - 1) - oscSemisUi(o)) / 12.f) : (src == 4 ? 0.5f : 1.f);
+        auto M = [&](float q) {
+            if (src <= 3) return oscCycleUi(src - 1, q);
+            if (src == 4) return std::sin(2.f * kPi * q);
+            const uint32_t h = (uint32_t)(q * 97.f) * 2654435761u; return (float)(h >> 8) / 8388608.f - 1.f;   // noise: steps
+        };
+        const int pts = 320;
+        float phase = 0.f;
+        beginPath();
+        for (int i = 0; i <= pts; ++i) {
+            const float x = (float)cycles * i / pts;
+            const float m = M(x * ratio);
+            float y;
+            if (mode == 0 || mode == 4) y = oscCycleUi(o, x + a * a * 2.f * hard * m);
+            else if (mode == 1 || mode == 5) { y = oscCycleUi(o, phase); phase += (float)cycles / pts * (1.f + a * a * 8.f * hard * m); }
+            else if (mode == 2) y = oscCycleUi(o, x) * (1.f + a * m * 1.5f) * 0.6f;
+            else y = oscCycleUi(o, x) * (1.f - a + a * m * 2.f);
+            y = std::max(-1.4f, std::min(1.4f, y));
+            const float xx = r.x + r.w * (float)i / pts, yy = cy - y * amp;
+            if (i == 0) moveTo(xx, yy); else lineTo(xx, yy);
+        }
+        strokeColor(withA(cViolet, 0.85f)); strokeWidth(1.2f); stroke();
+        char b[64]; std::snprintf(b, sizeof b, "%s %.0f%% from %s  x%.2f", kFmModeNames[std::max(0, std::min(5, mode))], a * 100.f,
+                                  src <= 3 ? (src == 1 ? "A" : src == 2 ? "B" : "C") : (src == 4 ? "Sub" : "Noise"), ratio);
+        label(r.x + 2, cy + amp * 1.15f + 16 > r.y + r.h - 6 ? r.y + r.h - 8 : cy + amp * 1.15f + 16, b, 7.6f, cViolet, ALIGN_LEFT | ALIGN_MIDDLE);
+    }
     void drawAnalogWave(int o, const Rect& r) {
         inset(r);
         const int wave = ival(oscP(o, ofAnWave));
@@ -397,6 +478,7 @@
             if (centre) { strokeColor(withA(cAccent, 0.25f)); strokeWidth(4.f); stroke(); strokeColor(cAccent); strokeWidth(1.6f); stroke(); }
             else { strokeColor(withA(cViolet, 0.28f)); strokeWidth(1.f); stroke(); }
         }
+        drawModPreview(o, { r.x + 12, r.y, r.w - 24, r.h }, 2, r.y + r.h * 0.5f, r.h * 0.33f);   // 6.0
         restore();
         char buf[64]; std::snprintf(buf, sizeof(buf), sync > 0.05f ? "PW %.0f%%   SYNC +%.1f st" : "PW %.0f%%", pw * 100.f, sync);
         label(r.x + r.w - 8, r.y + 11, buf, 8.5f, newestVoice() ? cViolet : cFaint, ALIGN_RIGHT | ALIGN_MIDDLE);
@@ -1107,6 +1189,13 @@
     }
     // 6.0: LFO SMOOTH shown on the editor: the smoothed curve (one-pole on the shape at the current rate)
     void drawLfoSmoothing(int i, const Rect& r) {
+        if (ival(lfoP(i, lfMode)) >= 2) {   // Retrig / One-shot: where each note starts (PHASE, + RND PHASE range)
+            const float ph = values[lfoP(i, lfPhase)], rp = values[pLRndPh1 + i];
+            const float x0 = r.x + 4 + (r.w - 8) * (ph - std::floor(ph));
+            if (rp > 0.001f) { beginPath(); rect(x0, r.y + 2, (r.w - 8) * std::min(1.f, rp), r.h - 4); fillColor(withA(cWarm, 0.10f)); fill(); }
+            beginPath(); moveTo(x0, r.y + 2); lineTo(x0, r.y + r.h - 2); strokeColor(withA(cWarm, 0.7f)); strokeWidth(1); stroke();
+            label(x0 + 3, r.y + r.h - 8, "start", 7.f, cWarm, ALIGN_LEFT | ALIGN_MIDDLE);
+        }
         const float smt = values[lfoP(i, lfSmooth)];
         if (smt <= 0.001f) return;
         const float rate = values[lfoP(i, lfSync)] >= 0.5f ? 1.f : std::max(0.005f, values[lfoP(i, lfRate)]);
