@@ -151,7 +151,7 @@ public:
 
 protected:
     const char* getLabel() const override       { return "Sydalesis"; }
-    const char* getDescription() const override { return "MPE synthesizer: wavetable, analog, additive, physical, granular and spectral oscillators, dual morphing filters, MSEG/LFO matrix, arp and sequencer"; }
+    const char* getDescription() const override { return "Sydalesis 6 - MPE synthesizer: wavetable, analog, additive, physical, granular, spectral and FM oscillators, dual morphing filters, MSEG/LFO matrix, arp and sequencer"; }
     const char* getMaker() const override       { return "Sydalesis"; }
     const char* getHomePage() const override    { return "https://sydalesis.bandcamp.com"; }
     const char* getLicense() const override     { return "Copyright Sydalesis"; }

@@ -2,7 +2,7 @@
 #define DISTRHO_PLUGIN_INFO_H_INCLUDED
 
 #define DISTRHO_PLUGIN_BRAND   "Sydalesis"
-#define DISTRHO_PLUGIN_NAME    "Sydalesis"                // 5.1.2: renamed (new plug-in, new IDs)
+#define DISTRHO_PLUGIN_NAME    "Sydalesis 6"              // 6.0: display name only; URI / CLAP id / unique id unchanged (sessions keep loading)
 #define DISTRHO_PLUGIN_URI     "urn:sydalesis:sydalesis"
 #define DISTRHO_PLUGIN_CLAP_ID "com.sydalesis.sydalesis"
 

@@ -1,0 +1,80 @@
+SYDALESIS 6  (6.0.0)
+====================
+https://sydalesis.bandcamp.com
+
+The plug-in now shows up in hosts as "Sydalesis 6". It is the same plug-in (same ids), so
+sessions made with Sydalesis 5.x open it as before. The logo (and SETUP) link to Bandcamp.
+
+New oscillator engine: FM
+- Seventh engine tab on every oscillator. Six operators, the 32 classic six-operator algorithms
+  (including the two with a feedback loop across operators).
+- Per operator: Ratio (x0.5, x1 .. x32), Fine, Detune (cents), Fixed frequency (1 Hz - 9 kHz),
+  Level, Wave (Sine, Half Sine, Abs Sine, Quarter, Alt Sine, Camel, Soft Square, Soft Saw),
+  Attack / Decay / Sustain / Release, Velocity sensitivity, Key scaling.
+- Oscillator-wide: Index (scales every modulator), Feedback, Brightness (deeper modulators are
+  scaled harder: darker / brighter without touching the levels), Spread (a fixed random detune per
+  operator and note), Env Time (scales all operator envelopes), Velocity > Index, Key > Index.
+- Unison (up to 4 voices), Detune and Width as on Wavetable / Analog. The FM / PM / AM / Ring input
+  row works on the FM engine too (PM on the carriers).
+- The algorithm diagram shows who modulates whom, the feedback path and the operator levels.
+  Click an operator (or its OP tab) to edit it; the envelope picture shows the selected operator.
+- Clean by design: carriers are pure sines (-98 dB), the output is DC-blocked, and the modulation
+  index is limited per note from an estimate of the spectrum's width, so high notes do not alias
+  into inharmonic noise. HQ gives more room.
+- Modulation: Timbre 1-4 = Index, Feedback, Brightness, Spread. Timbre 5-10 = operator 1-6 levels.
+- DX7 banks: SYX loads a .syx file (32-voice bulk dumps or single-voice dumps). The arrows step
+  through the voices; each one is converted into the FM oscillator (algorithm, feedback, ratios,
+  fixed frequencies, detune, levels, envelopes, velocity, transpose). Envelope rates and level
+  scaling are approximations; pitch EG and LFO are not carried over.
+
+Oscillators
+- PM Hard / FM Hard modes (4x deeper than PM / FM).
+- PM / FM now work on Additive, Physical and Spectral (on the oscillator's output). 5.x presets keep
+  their old (silent) FM settings silent until an FM control is touched.
+- Phase random (PH RND) per oscillator; Phase destinations (A/B/C Phase, evaluated at note-on).
+- Additive: Custom 2 spectrum. MORPH moves between Custom and Custom 2; the editor draws on the
+  one the morph is closer to.
+- Granular and Spectral level compensation (AUTO LEVEL, on in new patches and in the 6.0 bank).
+- Fixed: Additive could output NaN (silence) when Stretch modulation or a bend pushed partials
+  across the Nyquist limit.
+
+Envelopes
+- Decay curve for all three envelopes (D CURVE).
+- Attack / Decay / Sustain / Release of all three envelopes are modulation destinations.
+
+Modulation
+- New destinations: envelope stages, A/B/C Phase, and FX parameters beyond the mix: Phaser rate /
+  feedback, Chorus rate / depth, Delay time / feedback / damping, Freq Shift feedback, Tape flutter /
+  tone, Resonator decay / brightness, Space size / decay / damping, Spectral FX shift / tilt.
+- LFO random start phase (RND PHASE) for retriggered LFOs.
+- The assign line now starts at the MODULATOR panel's handle.
+
+Main page
+- The 8 macros moved to the bottom-left panel (two rows of four). The LFO strip is gone; the
+  MODULATOR panel is wider and edits every LFO / MSEG.
+- LFO copy / paste; LFO display shows the smoothing and the start phase.
+- MSEG: grid snap for X (time) and Y (level), set per editor (ALT drags freely); visible sustain and
+  loop markers; copy / paste.
+- Oscillator displays show what FM / PM / AM / Ring and the start phase do to the waveform.
+- Filter SHAPE is dimmed on filter types that do not use it.
+- Mixer ring text fits; the OCT / SEMI / FINE hint is gone.
+
+Header / presets
+- INIT button (a clean single-oscillator patch with the 6.0 behaviour switched on).
+- Preset browser: 6.0 bank and Legacy 5.x bank. The 5.x presets are carried over unchanged
+  (6,050 presets, values and states identical to 5.1.7) and keep their names and categories, so
+  sessions that point at them still find them.
+- New 6.0 factory bank: 2,500 presets across every category, written for 6.0 (FM layers, Custom 2
+  spectra, decay curves, envelope / phase / FX modulation, MPE pressure into the sources).
+
+Perform
+- Motion recorder: arm single macro lanes and overdub them (the others keep playing); draw lanes
+  with the mouse.
+- XY pads cannot both drive the same macro.
+
+Setup
+- Library folders: add your own wavetable and sample folders.
+
+Compatibility
+- Every 5.x parameter keeps its id: sessions, automation and 5.x presets load and sound as in 5.1.7
+  (differences, where any, are rounding-level, far below audibility). New parameters are appended.

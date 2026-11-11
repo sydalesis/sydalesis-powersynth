@@ -43,6 +43,7 @@
         drawLearnBadges();
         if (menuOpen) drawMenu();
         if (ctxOpen) drawCtx();
+        if (dxListOpen >= 0) drawDxList();
         drawFlash();
         if (randOpen) drawRandomize();
         if (presetOpen) drawPresetBrowser();
@@ -149,6 +150,8 @@
         if (randOpen)    { randomizeClick(mx, my); repaint(); return true; }
         if (menuOpen)    { menuClick(mx, my); repaint(); return true; }
         if (ctxOpen)     { ctxClick(mx, my); repaint(); return true; }
+        if (dxListOpen >= 0) { dxListClick(mx, my); repaint(); return true; }
+        if (ev.button == kMouseButtonLeft && (logoRect.contains(mx, my) || (page == pgSetup && linkRect.contains(mx, my)))) { openUrl(kBandcampUrl); return true; }
 
         if (ev.button == kMouseButtonRight) {
             const int ci = ctlAt(mx, my);

@@ -238,8 +238,41 @@
         if (fmSyxBtn[o].contains(mx, my)) { openSyx(o); return true; }
         if (fmVoicePrev[o].contains(mx, my)) { if (dxBank.empty()) openSyx(o); else applyDxVoice(o, dxVoice[o] - 1); return true; }
         if (fmVoiceNext[o].contains(mx, my)) { if (dxBank.empty()) openSyx(o); else applyDxVoice(o, dxVoice[o] + 1); return true; }
-        if (fmVoiceBox[o].contains(mx, my)) { if (dxBank.empty()) openSyx(o); else applyDxVoice(o, dxVoice[o] + 1); return true; }
+        if (fmVoiceBox[o].contains(mx, my)) { if (dxBank.empty()) openSyx(o); else { dxListOpen = o; dxListPage = std::max(0, dxVoice[o]) / 32; } repaint(); return true; }
         for (int k = 0; k < 6; ++k)
             if (fmOpTab[o][k].contains(mx, my) || fmOpBox[o][k].contains(mx, my)) { uiSel[ukFmOpA + o] = k; repaint(); return true; }
         return false;
+    }
+
+    // ---- the bank's voice list (two columns over the oscillator panel) -------------------------------
+    Rect dxListRect() const { const int o = std::max(0, dxListOpen); return { oscX[o] + 8, oscY + 64, 374, 336 }; }
+    Rect dxListItem(int i) const {
+        const Rect r = dxListRect();
+        const int rows = std::max(1, ((int)std::min<size_t>(dxBank.size(), 32) + 1) / 2);
+        const float rh = std::min(18.f, (r.h - 30.f) / rows);
+        return { r.x + 6 + (i / rows) * (r.w - 12) * 0.5f, r.y + 24 + (i % rows) * rh, (r.w - 12) * 0.5f - 4, rh - 2 };
+    }
+    int dxListPage = 0;
+    void drawDxList() {
+        const Rect r = dxListRect();
+        beginPath(); roundedRect(r.x, r.y, r.w, r.h, 6); fillColor(withA(cBg, 0.97f)); fill(); strokeColor(cAccent); strokeWidth(1); stroke();
+        const int n = (int)dxBank.size(), pages = (n + 31) / 32;
+        char hd[96]; std::snprintf(hd, sizeof hd, "%s · %d voices%s", dxBankName.c_str(), n, pages > 1 ? "  (click here for the next 32)" : "");
+        labelS(r.x + 10, r.y + 12, hd, 9.f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
+        for (int i = 0; i < 32 && dxListPage * 32 + i < n; ++i) {
+            const int v = dxListPage * 32 + i;
+            const Rect b = dxListItem(i);
+            const bool cur = v == dxVoice[dxListOpen], hot = b.contains(hoverX, hoverY);
+            if (cur || hot) { beginPath(); roundedRect(b.x, b.y, b.w, b.h, 3); fillColor(cur ? tint(cAccent, 0.25f) : shade(34.f)); fill(); }
+            char t[48]; std::snprintf(t, sizeof t, "%2d  %s", v + 1, dxBank[(size_t)v].name.c_str());
+            labelS(b.x + 6, b.cy() + 0.5f, t, 9.5f, cur ? cAccent : cText, ALIGN_LEFT | ALIGN_MIDDLE);
+        }
+    }
+    void dxListClick(float x, float y) {
+        const Rect r = dxListRect();
+        const int o = dxListOpen;
+        if (!r.contains(x, y)) { dxListOpen = -1; return; }
+        if (y < r.y + 22) { const int pages = ((int)dxBank.size() + 31) / 32; dxListPage = pages > 0 ? (dxListPage + 1) % pages : 0; return; }
+        for (int i = 0; i < 32; ++i)
+            if (dxListItem(i).contains(x, y) && dxListPage * 32 + i < (int)dxBank.size()) { dxListOpen = -1; applyDxVoice(o, dxListPage * 32 + i); return; }
     }

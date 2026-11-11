@@ -12,7 +12,7 @@ if [ ! -d dpf ]; then git clone --recursive https://github.com/DISTRHO/DPF.git d
 ( cd source && rm -rf build bin && make -j"$(nproc)" DPF_PATH="$ROOT/dpf" CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ WINDOWS=true HAVE_OPENGL=true )
 PKG="dist/Sydalesis-$VERSION-win64"
 rm -rf "$PKG" && mkdir -p "$PKG"
-cp -r source/bin/Sydalesis.vst3 source/bin/Sydalesis.clap Wavetables Samples Tunings LICENSE.txt CHANGES-5.1.7.txt install.bat "$PKG/"
+cp -r source/bin/Sydalesis.vst3 source/bin/Sydalesis.clap Wavetables Samples Tunings LICENSE.txt CHANGES-6.0.0.txt install.bat "$PKG/"
 [ -d Screenshots ] && cp -r Screenshots "$PKG/"
 tar --exclude=build --exclude=bin -cf - source | tar -xf - -C "$PKG"
 ( cd dist && rm -f "Sydalesis-$VERSION-win64.zip" && zip -qr "Sydalesis-$VERSION-win64.zip" "Sydalesis-$VERSION-win64" )

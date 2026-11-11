@@ -303,6 +303,7 @@
         label(20, 25, "SYDALESIS", 20, cText, ALIGN_LEFT | ALIGN_MIDDLE);
         letterSp(0.f);
         label(198, 25, "6", 20, cAccent, ALIGN_LEFT | ALIGN_MIDDLE);
+        if (hovered(logoRect)) { beginPath(); moveTo(20, 37); lineTo(212, 37); strokeColor(withA(cAccent, 0.6f)); strokeWidth(1); stroke(); }
         letterSp(1.6f);
         drawLayerSwitch();
         letterSp(0.f);

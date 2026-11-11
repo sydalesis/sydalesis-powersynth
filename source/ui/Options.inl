@@ -186,6 +186,7 @@
             debugHookDone = true;
             if (const char* e = std::getenv("SYD_DEBUG_PRESET")) loadAnyPreset(std::atoi(e));
             if (const char* e = std::getenv("SYD_DEBUG_FM")) { const int a = std::atoi(e); for (int o = 0; o < 3; ++o) setParamUser(oscP(o, ofType), (float)otFm); setParamUser(fmP(0, fmAlgo), (float)a); setParamUser(fmP(1, fmAlgo), (float)((a + 10) % 32)); setParamUser(fmP(2, fmAlgo), 31.f); uiSel[ukFmOpB] = 3; }
+            if (const char* e = std::getenv("SYD_DEBUG_SYX")) { syxSelected(0, e); if (const char* v = std::getenv("SYD_DEBUG_SYXV")) applyDxVoice(0, std::atoi(v)); if (std::getenv("SYD_DEBUG_DXLIST")) dxListOpen = 0; }
             if (const char* e = std::getenv("SYD_DEBUG_PAGE")) { page = std::max(0, std::min((int)kPages - 1, std::atoi(e))); dirty = true; }
         }
         if (perfTick()) dirty = true;
@@ -285,6 +286,13 @@
         label(1048, y + 40, help, 8.5f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);   // help sits under the buttons
     }
     void drawSetup() {
+        {   // 6.0: about / link
+            const char* t = "Sydalesis 6  ·  sydalesis.bandcamp.com  ↗";
+            linkRect = { kW - 330.f, 66, 316, 22 };
+            const bool hot = hovered(linkRect);
+            labelS(linkRect.x + linkRect.w, linkRect.cy(), t, 11.f, hot ? cText : cAccent, ALIGN_RIGHT | ALIGN_MIDDLE);
+            if (hot) { beginPath(); moveTo(linkRect.x + 40, linkRect.y + linkRect.h - 2); lineTo(linkRect.x + linkRect.w, linkRect.y + linkRect.h - 2); strokeColor(withA(cAccent, 0.6f)); strokeWidth(1); stroke(); }
+        }
         for (int i = 0; i < kSkinCount; ++i) drawSkinPreview(i, skinTile[i]);
         static const char* const rn[kRefreshCount] = { "30 Hz", "60 Hz", "120 Hz", "Max" };
         static const char* const sn[3] = { "Off", "Light", "Smooth" };
