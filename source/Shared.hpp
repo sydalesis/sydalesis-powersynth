@@ -601,6 +601,7 @@ struct SharedBlock {
     // 5.1.1: a MIDI program change loaded a factory preset in the plug-in: the editor refreshes from it
     std::atomic<uint32_t> pcSerial { 0 };
     std::atomic<int> pcIndex { -1 };
+    std::atomic<int> dbgPage { -1 };       // 6.0: SYD_DEBUG_SCRIPT "PAGE n" (video capture)
     // 5.1.1: safety limiter gain reduction (dB, >= 0) for the meter
     std::atomic<float> limGr { 0.f };
     std::atomic<int> sclError { 0 };       // 1 when the stored Scala text failed to parse

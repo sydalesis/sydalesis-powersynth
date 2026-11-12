@@ -238,6 +238,7 @@
         if (shared) {
             const uint32_t s = shared->pcSerial.load(std::memory_order_acquire);
             if (s != kbPcSeen) { kbPcSeen = s; const int idx = shared->pcIndex.load(); if (idx >= 0) refreshFromPluginPreset(idx); }
+            const int dp = shared->dbgPage.exchange(-1); if (dp >= 0 && dp < kPages) { page = dp; repaint(); }
         }
     }
     // the plug-in loaded factory preset idx on its own (MIDI program change): show it

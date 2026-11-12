@@ -1,5 +1,59 @@
+diff --git a/dgl/src/WindowPrivateData.cpp b/dgl/src/WindowPrivateData.cpp
+index d7a3c934..ec4ffdb6 100644
+--- a/dgl/src/WindowPrivateData.cpp
++++ b/dgl/src/WindowPrivateData.cpp
+@@ -767,12 +767,12 @@ void Window::PrivateData::onPuglFocus(const bool focus, const CrossingMode mode)
+     self->onFocus(focus, mode);
+ }
+ 
+-void Window::PrivateData::onPuglKey(const Widget::KeyboardEvent& ev)
++bool Window::PrivateData::onPuglKey(const Widget::KeyboardEvent& ev)
+ {
+     DGL_DBGp("onPuglKey : %i %u %u\n", ev.press, ev.key, ev.keycode);
+ 
+     if (modal.child != nullptr)
+-        return modal.child->focus();
++        return modal.child->focus(), true;
+ 
+ #ifndef DPF_TEST_WINDOW_CPP
+     FOR_EACH_TOP_LEVEL_WIDGET_INV(rit)
+@@ -780,9 +780,10 @@ void Window::PrivateData::onPuglKey(const Widget::KeyboardEvent& ev)
+         TopLevelWidget* const widget(*rit);
+ 
+         if (widget->isVisible() && widget->onKeyboard(ev))
+-            break;
++            return true;
+     }
+ #endif
++    return false;   // Sydalesis: unused keys go back to the host (see pugl mac.m keyDown)
+ }
+ 
+ void Window::PrivateData::onPuglText(const Widget::CharacterInputEvent& ev)
+@@ -1051,7 +1052,8 @@ PuglStatus Window::PrivateData::puglEventCallback(PuglView* const view, const Pu
+             ev.mod |= kModifierShift;
+         }
+ 
+-        pData->onPuglKey(ev);
++        if (!pData->onPuglKey(ev))
++            return PUGL_UNSUPPORTED;
+         break;
+     }
+ 
+diff --git a/dgl/src/WindowPrivateData.hpp b/dgl/src/WindowPrivateData.hpp
+index 38831848..37ee08fb 100644
+--- a/dgl/src/WindowPrivateData.hpp
++++ b/dgl/src/WindowPrivateData.hpp
+@@ -200,7 +200,7 @@ struct Window::PrivateData : IdleCallback {
+     void onPuglExpose();
+     void onPuglClose();
+     void onPuglFocus(bool focus, CrossingMode mode);
+-    void onPuglKey(const Widget::KeyboardEvent& ev);
++    bool onPuglKey(const Widget::KeyboardEvent& ev);
+     void onPuglText(const Widget::CharacterInputEvent& ev);
+     void onPuglMouse(const Widget::MouseEvent& ev);
+     void onPuglMotion(const Widget::MotionEvent& ev);
 diff --git a/distrho/src/DistrhoPluginCLAP.cpp b/distrho/src/DistrhoPluginCLAP.cpp
-index 5939092..bf693df 100644
+index 59390921..bf693df5 100644
 --- a/distrho/src/DistrhoPluginCLAP.cpp
 +++ b/distrho/src/DistrhoPluginCLAP.cpp
 @@ -1570,6 +1570,15 @@ public:
@@ -38,7 +92,7 @@ index 5939092..bf693df 100644
  
      static bool requestParameterValueChangeCallback(void* const ptr, const uint32_t index, const float value)
 diff --git a/distrho/src/DistrhoPluginVST3.cpp b/distrho/src/DistrhoPluginVST3.cpp
-index 7295c89..ab2d870 100644
+index 7295c892..ab2d870d 100644
 --- a/distrho/src/DistrhoPluginVST3.cpp
 +++ b/distrho/src/DistrhoPluginVST3.cpp
 @@ -310,7 +310,8 @@ class PluginVst3
@@ -316,3 +370,51 @@ index 7295c89..ab2d870 100644
          if (v3_tuid_match(iid, v3_midi_mapping_iid))
          {
             #if DISTRHO_PLUGIN_WANT_MIDI_INPUT
+diff --git a/dgl/src/pugl-upstream/src/mac.m b/dgl/src/pugl-upstream/src/mac.m
+index 977cd7e..b9bd755 100644
+--- a/dgl/src/pugl-upstream/src/mac.m
++++ b/dgl/src/pugl-upstream/src/mac.m
+@@ -600,7 +600,9 @@ handleCrossing(PuglWrapperView* view, NSEvent* event, const PuglEventType type)
+ 
+   PuglEvent releaseEvent;
+   releaseEvent.button = ev;
+-  puglDispatchEvent(puglview, &releaseEvent);
++  if (puglDispatchEvent(puglview, &releaseEvent) == PUGL_UNSUPPORTED && puglview->parent) {
++    [[self nextResponder] keyUp:event];   // Sydalesis: unused keys go back to the host
++  }
+ }
+ 
+ - (void)rightMouseDown:(NSEvent*)event
+@@ -692,7 +694,11 @@ handleCrossing(PuglWrapperView* view, NSEvent* event, const PuglEventType type)
+ 
+   PuglEvent pressEvent;
+   pressEvent.key = ev;
+-  puglDispatchEvent(puglview, &pressEvent);
++  if (puglDispatchEvent(puglview, &pressEvent) == PUGL_UNSUPPORTED && puglview->parent) {
++    // Sydalesis: the editor did not use the key: hand it to the host (transport, shortcuts, typing notes)
++    [[self nextResponder] keyDown:event];
++    return;
++  }
+ 
+   if (!spec) {
+     [self interpretKeyEvents:@[event]];
+@@ -888,6 +894,9 @@ flagDiffers(const uint32_t lhs, const uint32_t rhs, const uint32_t mask)
+   }
+ 
+   puglview->impl->mods = mods;
++  if (puglview->parent) {
++    [[self nextResponder] flagsChanged:event];   // Sydalesis: the host keeps its modifier state
++  }
+ }
+ 
+ - (BOOL)preservesContentInLiveResize
+@@ -1272,7 +1281,8 @@ puglRealize(PuglView* view)
+     NSView* pview = (NSView*)view->parent;
+     [pview addSubview:impl->wrapperView];
+     [impl->drawView setHidden:NO];
+-    [[impl->drawView window] makeFirstResponder:impl->wrapperView];
++    // Sydalesis: an embedded editor no longer makes itself first responder when it opens, so the host keeps the
++    // keyboard; clicking into it (or a text field taking focus) still does
+   } else {
+     unsigned style =
+       (NSClosableWindowMask | NSTitledWindowMask | NSMiniaturizableWindowMask);

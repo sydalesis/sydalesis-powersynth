@@ -328,7 +328,7 @@
         };
         {   // 6.0: version + links (the synth's page, the music)
             const float ly = y;
-            line("Version", "Sydalesis 6  ·  6.0.1  (formerly Driftfield)", cText);
+            line("Version", "Sydalesis 6  ·  6.0.2  (formerly Driftfield)", cText);
             itchRect = { c.x + 420, ly - 10, 150, 20 }; linkRect = { c.x + 600, ly - 10, 200, 20 };
             auto link = [&](const Rect& r, const char* t) {
                 const bool hot = hovered(r);

@@ -1,5 +1,5 @@
 @echo off
-rem Sydalesis 6 (6.0.1) installer - synth page https://sydalesis.itch.io/ , music https://sydalesis.bandcamp.com - (formerly Driftfield). Installs Sydalesis.vst3 / .clap as a NEW plug-in next to
+rem Sydalesis 6 (6.0.2) installer - synth page https://sydalesis.itch.io/ , music https://sydalesis.bandcamp.com - (formerly Driftfield). Installs Sydalesis.vst3 / .clap as a NEW plug-in next to
 rem Driftfield, which stays installed for sessions made with it. Run as administrator (Common Files is protected).
 setlocal
 set "HERE=%~dp0"

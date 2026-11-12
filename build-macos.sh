@@ -5,14 +5,14 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 ROOT="$PWD"
-VERSION="6.0.1"
+VERSION="6.0.2"
 DPF_COMMIT=4238e1c7f0351bbe488d79f0899c540543ac7583   # the DPF the patch was written against
 
 # 1. DPF framework, pinned, with the Sydalesis patch (VST3 note expression, CLAP restore bracket / MIDI learn)
 if [ ! -d dpf ]; then
   git clone --recursive https://github.com/DISTRHO/DPF.git dpf
 fi
-( cd dpf && git checkout -q "$DPF_COMMIT" && git submodule update --init --recursive -q && git checkout -q -- . && git apply "$ROOT/source/dpf-sydalesis.patch" )
+( cd dpf && git checkout -q "$DPF_COMMIT" && git submodule update --init --recursive -q && git checkout -q -- . && git submodule foreach -q git checkout -q -- . && git apply "$ROOT/source/dpf-sydalesis.patch" )
 
 # 2. universal build
 export MACOSX_DEPLOYMENT_TARGET=10.15
@@ -33,7 +33,7 @@ rm -rf "$PKG" && mkdir -p "$PKG"
 cp -R source/bin/Sydalesis.vst3 source/bin/Sydalesis.clap "$PKG/"
 [ -e source/bin/Sydalesis.component ] && cp -R source/bin/Sydalesis.component "$PKG/"
 cp -R Wavetables Samples Tunings "$PKG/"
-cp LICENSE.txt CHANGES-6.0.1.txt macos/README-macOS.txt "$PKG/"
+cp LICENSE.txt CHANGES-6.0.2.txt macos/README-macOS.txt "$PKG/"
 cp macos/Install\ Sydalesis.command "$PKG/"
 tar --exclude=build --exclude=bin -cf - source | tar -xf - -C "$PKG"
 chmod +x "$PKG/Install Sydalesis.command"

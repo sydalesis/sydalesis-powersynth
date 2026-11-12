@@ -155,7 +155,7 @@
             button(tnExportBtn, "SAVE AS .SCL", false, hovered(tnExportBtn), 9.5f);
             if (src != 2) { dimRect(tnLoadKbm); dimRect(tnClearScl); }
             if (!sc) dimRect(tnExportBtn);
-            label(c.x + 16, c.y + 402, "Tunings folder: Documents\\Driftfield\\Tunings", 8.5f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
+            label(c.x + 16, c.y + 402, "Tunings folder: Documents\\Sydalesis\\Tunings", 8.5f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
         }
         // library
         {

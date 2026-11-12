@@ -155,7 +155,7 @@ protected:
     const char* getMaker() const override       { return "Sydalesis"; }
     const char* getHomePage() const override    { return "https://sydalesis.itch.io/"; }   // 6.0: the synth's page
     const char* getLicense() const override     { return "Copyright Sydalesis"; }
-    uint32_t    getVersion() const override     { return d_version(6, 0, 1); }
+    uint32_t    getVersion() const override     { return d_version(6, 0, 2); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override
     {
@@ -270,7 +270,42 @@ protected:
     }
 
     void sampleRateChanged(double sr) override { for (auto& e : eng) e->setSampleRate((float)sr); allocCapture(sr); }
-    void activate() override { for (auto& e : eng) e->reset(); }
+    void activate() override { for (auto& e : eng) e->reset(); dbgLoad(); }
+
+    // ---- 6.0: scripted performance for screen capture (SYD_DEBUG_SCRIPT), output to SYD_DEBUG_WAV (raw float32 stereo)
+    struct DbgEv { double t; int kind; uint8_t d[3]; int sz; int arg; };
+    std::vector<DbgEv> dbgEv; size_t dbgI = 0; uint64_t dbgFrames = 0; FILE* dbgOut = nullptr; FILE* dbgClock = nullptr; bool dbgOn = false;
+    void dbgLoad()
+    {
+        const char* path = std::getenv("SYD_DEBUG_SCRIPT");
+        if (path == nullptr || dbgOn) return;
+        std::ifstream in(path); std::string line;
+        while (std::getline(in, line)) {
+            char kind[16] = { 0 }; double t = 0; int a = 0, b = 0, c = 0;
+            const int n = std::sscanf(line.c_str(), "%lf %15s %d %d %d", &t, kind, &a, &b, &c);
+            if (n < 2) continue;
+            DbgEv e { t, 0, { (uint8_t)a, (uint8_t)b, (uint8_t)c }, n - 2, a };
+            if (!std::strcmp(kind, "PC")) e.kind = 1; else if (!std::strcmp(kind, "PAGE")) e.kind = 2; else if (!std::strcmp(kind, "PANIC")) e.kind = 3;
+            dbgEv.push_back(e);
+        }
+        if (const char* w = std::getenv("SYD_DEBUG_WAV")) dbgOut = std::fopen(w, "wb");
+        if (const char* w = std::getenv("SYD_DEBUG_CLOCK")) dbgClock = std::fopen(w, "w");
+        dbgOn = true;
+    }
+    void dbgRun(uint32_t frames, bool layerOn)
+    {
+        if (!dbgOn) return;
+        if (dbgFrames == 0) { const double now = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(); std::fprintf(stderr, "SYD_DEBUG_START %.4f\n", now); }
+        if (dbgClock) { std::fprintf(dbgClock, "%.4f %llu\n", std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count(), (unsigned long long)dbgFrames); std::fflush(dbgClock); }
+        const double tEnd = (double)(dbgFrames + frames) / getSampleRate();
+        while (dbgI < dbgEv.size() && dbgEv[dbgI].t < tEnd) {
+            const DbgEv& e = dbgEv[dbgI++];
+            if (e.kind == 1) applyProgramChange(e.arg);
+            else if (e.kind == 2) shared->dbgPage.store(e.arg);
+            else if (e.kind == 3) { eng[0]->reset(); eng[1]->reset(); }
+            else { const uint32_t sz = (e.d[0] & 0xF0) == 0xD0 ? 2u : 3u; eng[0]->midi(e.d, sz); if (layerOn) eng[1]->midi(e.d, sz); }
+        }
+    }
 
     void run(const float**, float** outputs, uint32_t frames, const MidiEvent* midiEvents, uint32_t midiEventCount) override
     {
@@ -311,6 +346,7 @@ protected:
         float* const L = outputs[0];
         float* const R = outputs[1];
         uint32_t pos = 0;
+        dbgRun(frames, layerOn);
         // 5.1.1: notes / wheels from the on-screen keyboard, at the start of the block
         for (uint32_t r = shared->uiMidiR.load(std::memory_order_relaxed), w = shared->uiMidiW.load(std::memory_order_acquire); r != w; ++r)
         {
@@ -341,6 +377,7 @@ protected:
         if (pos < frames) renderSegment(L, R, pos, frames - pos, layerOn);
         safetyLimit(L, R, frames);
         recordCapture(L, R, frames);
+        if (dbgOn) { if (dbgOut) for (uint32_t i = 0; i < frames; ++i) { const float s2[2] = { L[i], R[i] }; std::fwrite(s2, 4, 2, dbgOut); } if (dbgOut) std::fflush(dbgOut); dbgFrames += frames; }
        #ifdef DRIFT_FTZ
         _mm_setcsr(oldCsr);
        #endif
@@ -354,6 +391,7 @@ protected:
         shared->tel.cpu = cpuS; shared->tel2.cpu = cpuS;
         runGuard(load, (float)budget);
         publishMts((float)budget);
+        if (dbgOn) if (const char* sl = std::getenv("SYD_DEBUG_SLOW")) { const double f = std::atof(sl); if (f > 1.0) std::this_thread::sleep_for(std::chrono::duration<double>((f - 1.0) * frames / getSampleRate())); }   // after the CPU meter
     }
 
 private:

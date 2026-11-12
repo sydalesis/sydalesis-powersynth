@@ -403,7 +403,9 @@
     }
 
     bool onKeyboard(const KeyboardEvent& ev) override {
-        if (!ev.press) return false;
+        // 6.0.2: every key this editor does not use goes back to the host (spacebar, arrows, save, typing notes);
+        // the plug-in only keeps the keyboard while a text field is active
+        if (!ev.press) return textTarget != ttNone;
         if (textTarget != ttNone) {
             if (ev.key == kKeyEscape) { textTarget = ttNone; saveOpen = false; repaint(); return true; }
             if (ev.key == '\r' || ev.key == '\n') { if (textTarget == ttPresetName) doSave(); else commitText(); repaint(); return true; }
