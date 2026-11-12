@@ -12,6 +12,7 @@
     int  optRefresh = 1;           // index into kRefreshMs
     int  optSmooth = 1;            // 0 off, 1 light, 2 smooth
     bool optPredict = true, optTips = true, optLive = true, optGuard = true;
+    int  optPress = 0;             // 6.0.2: MPE pressure On / Hold / Off
     int  optSkin = 0;
     int  optTextSize = 1;          // 5.1.5: 0 Normal, 1 Large (default), 2 Larger
     // 6.0 MSEG grid: time step in seconds (or beats with SYNC), level divisions; 0 = off (no snapping)
@@ -42,6 +43,7 @@
             else if (k == "scopeTilt") scopeTilt = std::max(0, std::min(2, v));
             else if (k == "rollLen") rollLen = std::max(0, std::min(2, v));
             else if (k == "cpuGuard") optGuard = v != 0;
+            else if (k == "pressMode") optPress = std::max(0, std::min(2, v));
             else if (k == "threads") optThreads = v;
             else if (k == "textSize") optTextSize = std::max(0, std::min(2, v));
             else if (k == "msegGridX") optMsegGridX = std::max(0, std::min(kMsegGridX - 1, v));
@@ -56,7 +58,7 @@
         out << "refresh " << optRefresh << "\nsmooth " << optSmooth << "\npredict " << (optPredict ? 1 : 0)
             << "\ntooltips " << (optTips ? 1 : 0) << "\nlive " << (optLive ? 1 : 0) << "\nskin " << optSkin << "\nscopeMode " << scopeMode << "\nscopeGain " << scopeGain << "\nscopeTime " << scopeTime
             << "\nscopeChan " << scopeChan << "\nscopeTilt " << scopeTilt << "\nrollLen " << rollLen << "\ncpuGuard " << (optGuard ? 1 : 0) << "\nthreads " << optThreads << "\ntextSize " << optTextSize
-            << "\nmsegGridX " << optMsegGridX << "\nmsegGridY " << optMsegGridY << "\npresetBank " << pbBank << "\n";
+            << "\nmsegGridX " << optMsegGridX << "\nmsegGridY " << optMsegGridY << "\npresetBank " << pbBank << "\npressMode " << optPress << "\n";
     }
 
     // ------------------------------------------------------------------ frame timer
@@ -192,6 +194,7 @@
         if (perfTick()) dirty = true;
         if (page == pgLayer && shared) dirty = true;   // layer meters
         if (shared && shared->guardOn.load() != (optGuard ? 1 : 0)) shared->guardOn.store(optGuard ? 1 : 0);
+        if (shared && shared->pressMode.load() != optPress) shared->pressMode.store(optPress);
         if (shared && shared->guardCap.load() != lastGuardCap) { lastGuardCap = shared->guardCap.load(); dirty = true; }
         if (dirty || sd == sdAssign) repaint();
     }
@@ -199,7 +202,7 @@
     bool debugHookDone = false;
 
     // ------------------------------------------------------------------ SETUP page
-    Rect skinTile[kSkinCount], optRefreshBtn[kRefreshCount], optSmoothBtn[3], optPredictBtn[2], optTipsBtn[2], optLiveBtn[2], optGuardBtn[2], optThreadsBtn[4], optTextBtn[3];
+    Rect skinTile[kSkinCount], optRefreshBtn[kRefreshCount], optSmoothBtn[3], optPredictBtn[2], optTipsBtn[2], optLiveBtn[2], optGuardBtn[2], optThreadsBtn[4], optPressBtn[3], optTextBtn[3];
     // 4.2 render threads: per instance (saved with the session); the choice also becomes the default for new instances
     static constexpr int kThreadVals[4] = { 1, 2, 4, 99 };
     int optThreads = 1;              // default for new instances (options file)
@@ -234,6 +237,7 @@
         for (int i = 0; i < 2; ++i) optTipsBtn[i] = { x0 + i * 196.f, y0 + 5 * dy, 190, 28 };
         for (int i = 0; i < 2; ++i) optGuardBtn[i] = { x0 + i * 196.f, y0 + 6 * dy, 190, 28 };
         for (int i = 0; i < 4; ++i) optThreadsBtn[i] = { x0 + i * 98.f, y0 + 7 * dy, 92, 28 };
+        for (int i = 0; i < 3; ++i) optPressBtn[i] = { 300 + i * 131.f, 586, 125, 28 };   // below the skins
     }
 
     void drawSkinPreview(int i, const Rect& rt) {
@@ -316,6 +320,14 @@
             static const char* const tn[4] = { "Off", "2", "4", "Auto" };
             for (int i = 0; i < 4; ++i) button(optThreadsBtn[i], tn[i], threadsIndex() == i, hovered(optThreadsBtn[i]));
         }
+        {   // 6.0.2
+            static const char* const pn[3] = { "On", "Hold", "Off" };
+            label(32, 592, "MPE pressure", 12.f, cText, ALIGN_LEFT | ALIGN_MIDDLE);
+            label(32, 612, "for every instance", 9.f, cFaint, ALIGN_LEFT | ALIGN_MIDDLE);
+            label(712, 593, "Hold: lifting a key no longer cuts the note;", 9.5f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
+            label(712, 609, "releases ring on.  Off: pressure is ignored.", 9.5f, cDim, ALIGN_LEFT | ALIGN_MIDDLE);
+            for (int i = 0; i < 3; ++i) button(optPressBtn[i], pn[i], optPress == i, hovered(optPressBtn[i]));
+        }
 
         // info card
         const Rect& c = setupInfoCard;
@@ -328,7 +340,7 @@
         };
         {   // 6.0: version + links (the synth's page, the music)
             const float ly = y;
-            line("Version", "Sydalesis 6  ·  6.0.2  (formerly Driftfield)", cText);
+            line("Version", "Sydalesis 6  ·  6.0.3  (formerly Driftfield)", cText);
             itchRect = { c.x + 420, ly - 10, 150, 20 }; linkRect = { c.x + 600, ly - 10, 200, 20 };
             auto link = [&](const Rect& r, const char* t) {
                 const bool hot = hovered(r);
@@ -419,6 +431,7 @@
             UI::setState("threads", instThreads.c_str());
             saveOptions(); repaint(); return true;
         }
+        for (int i = 0; i < 3; ++i) if (optPressBtn[i].contains(mx, my)) { optPress = i; if (shared) shared->pressMode.store(i); saveOptions(); repaint(); return true; }
         for (int i = 0; i < 2; ++i) if (optGuardBtn[i].contains(mx, my)) { optGuard = i == 1; if (shared) shared->guardOn.store(optGuard ? 1 : 0); saveOptions(); repaint(); return true; }
         return false;
     }

@@ -155,7 +155,7 @@ protected:
     const char* getMaker() const override       { return "Sydalesis"; }
     const char* getHomePage() const override    { return "https://sydalesis.itch.io/"; }   // 6.0: the synth's page
     const char* getLicense() const override     { return "Copyright Sydalesis"; }
-    uint32_t    getVersion() const override     { return d_version(6, 0, 2); }
+    uint32_t    getVersion() const override     { return d_version(6, 0, 3); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override
     {
@@ -270,6 +270,7 @@ protected:
     }
 
     void sampleRateChanged(double sr) override { for (auto& e : eng) e->setSampleRate((float)sr); allocCapture(sr); }
+    int pressModeSet = -1;
     void activate() override { for (auto& e : eng) e->reset(); dbgLoad(); }
 
     // ---- 6.0: scripted performance for screen capture (SYD_DEBUG_SCRIPT), output to SYD_DEBUG_WAV (raw float32 stereo)
@@ -347,6 +348,10 @@ protected:
         float* const R = outputs[1];
         uint32_t pos = 0;
         dbgRun(frames, layerOn);
+        {   // 6.0.2: MPE pressure mode (Setup page, global for every instance)
+            const int pm = shared->pressMode.load(std::memory_order_relaxed);
+            if (pm != pressModeSet) { pressModeSet = pm; for (auto& e : eng) e->setPressMode(pm); }
+        }
         // 5.1.1: notes / wheels from the on-screen keyboard, at the start of the block
         for (uint32_t r = shared->uiMidiR.load(std::memory_order_relaxed), w = shared->uiMidiW.load(std::memory_order_acquire); r != w; ++r)
         {
@@ -536,6 +541,7 @@ private:
             while (in >> k >> v)
             {
                 if (k == "cpuGuard") shared->guardOn.store(v != 0 ? 1 : 0);
+                if (k == "pressMode") shared->pressMode.store(v < 0 ? 0 : (v > 2 ? 2 : v));
                 if (k == "threads") threadsSetting = v <= 1 ? "" : (v >= 99 ? "auto" : std::to_string(v));   // default for new instances
             }
         }

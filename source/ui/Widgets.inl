@@ -339,7 +339,7 @@
         else std::snprintf(buf, sizeof(buf), "%d / %d voices", shared ? tel.activeCount : 0, ival(pPolyphony));
         label(mx, 40, buf, 8.5f, guard > 0 ? cWarn : cDim, ALIGN_LEFT | ALIGN_MIDDLE);
         if (shared && tel.bpm > 0.f) { std::snprintf(buf, sizeof(buf), "%.0f bpm%s", tel.bpm, tel.playing ? " ▶" : ""); label(mx + 100, 40, buf, 8.5f, tel.playing ? cAccent : cFaint, ALIGN_LEFT | ALIGN_MIDDLE); }
-        label(kW - 14, 21, "MPE · v6.0.2", 8.5f, cAccent, ALIGN_RIGHT | ALIGN_MIDDLE);
+        label(kW - 14, 21, "MPE · v6.0.3", 8.5f, cAccent, ALIGN_RIGHT | ALIGN_MIDDLE);
 
         const float cur = currentRelativeScale();
         static const char* const lbl[4] = { "75", "90", "100", "125" };

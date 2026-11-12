@@ -106,7 +106,7 @@ jobs:
           g++ $F -mavx2 -mfma -c EngineAVX2.cpp -o /tmp/ea.o
           g++ $F -c EngineFactory.cpp -o /tmp/ef.o
           g++ $F -c Platform.cpp -o /tmp/pl.o
-          for t in smoke v513 v511 v516 v517 v60fm; do
+          for t in smoke v513 v511 v516 v517 v60fm v602; do
             g++ -O2 -std=gnu++17 test/$t.cpp /tmp/eg.o /tmp/ea.o /tmp/ef.o /tmp/pl.o -lpthread -o /tmp/$t
             (cd test && /tmp/$t | tail -2)
           done

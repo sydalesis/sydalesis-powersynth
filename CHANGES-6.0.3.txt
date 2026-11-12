@@ -1,9 +1,18 @@
-SYDALESIS 6  (6.0.2)
+SYDALESIS 6  (6.0.3)
 ====================
 Synth page: https://sydalesis.itch.io/  ·  Music: https://sydalesis.bandcamp.com
 
 The plug-in now shows up in hosts as "Sydalesis 6". It is the same plug-in (same ids), so
 sessions made with Sydalesis 5.x open it as before. The logo opens the synth's page (itch.io); SETUP links to it and to the music on Bandcamp.
+
+6.0.3
+- MPE pressure (SETUP page, for every instance): On / Hold / Off.
+  Hold: pressure falls slowly, so lifting a key (keyboards like the Osmose drop the pressure to zero before
+  the note-off) no longer cuts the note: the release rings on at the level you were playing.
+  Off: pressure is ignored, the synth plays like a keyboard without pressure.
+- Fixed: a released note on an MPE channel followed the next note played on that channel (its pressure,
+  slide and pitch), so old notes swelled back when you changed notes. Released notes now keep the
+  expression they had.
 
 6.0.2
 - macOS: the editor no longer keeps the computer keyboard. Keys it does not use (spacebar transport,

@@ -47,6 +47,7 @@ struct IEngine {
     virtual int activeVoices() const = 0;
     virtual void setEnvClassic(bool on) = 0;      // 3.0 attack curve (old sessions)
     virtual void setGuardCap(int voices) = 0;     // CPU guard voice cap (kMaxVoices = off)
+    virtual void setPressMode(int mode) = 0;      // 6.0.2: 0 On, 1 Hold (slow fall, rings on in the release), 2 Off
     // 4.0 tuning: Scala scale + optional keyboard map (copied; nullptr clears), external per-note tuning
     virtual void setUserScale(const ScaleDef* scale, const KbmDef* kbm) = 0;
     virtual void setTuningProvider(ITuningProvider* provider) = 0;

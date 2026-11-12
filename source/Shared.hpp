@@ -568,6 +568,7 @@ struct SharedBlock {
     std::atomic<int> uiOpen { 0 };
     // CPU guard
     std::atomic<int> guardOn { 1 };        // user option (Setup page)
+    std::atomic<int> pressMode { 0 };      // 6.0.2 user option (Setup page): MPE pressure On / Hold / Off
     std::atomic<int> guardCap { 0 };       // 0 = idle, else the current voice cap (header indicator)
     std::atomic<int> guardRealtime { 0 };  // 1 when the host reported real-time processing (VST3)
     // legacy 3.0 envelope model for this instance

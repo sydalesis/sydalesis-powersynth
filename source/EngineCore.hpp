@@ -473,6 +473,8 @@ public:
     }
     void setTelemetry(Telemetry* t) override { tel = t; }
     void setEnvClassic(bool on) override { envClassic.store(on, std::memory_order_relaxed); }
+    int pressMode = 0;
+    void setPressMode(int mode) override { pressMode = mode < 0 ? 0 : (mode > 2 ? 2 : mode); }
     void setGuardCap(int cap) override { guardCap.store(cap < 1 ? 1 : (cap > kMaxVoices ? kMaxVoices : cap), std::memory_order_relaxed); }
 
     void postTable(int osc, WaveTable* t) override {
@@ -1379,12 +1381,21 @@ private:
         const float dtb = (float)n / fs;
         const float sm = snap ? 1.f : 1.f - std::exp(-(float)n / (0.004f * fs));
         const NeKey& ne = neKeys[v.ch & 15][v.note & 127];
-        v.bendS  += (cs.bend - v.bendS) * sm;
-        v.slideS += (clampf(cs.slide + ne.bright, -1.f, 1.f) - v.slideS) * sm;
+        // 6.0.2: a released note on an MPE member channel keeps the expression it had: the channel now belongs to
+        // the next note, whose pressure / slide / bend used to bring the old note's release back
+        const bool frozen = !v.gate && v.ch != 0 && !snap;
+        if (!frozen) {
+            v.bendS  += (cs.bend - v.bendS) * sm;
+            v.slideS += (clampf(cs.slide + ne.bright, -1.f, 1.f) - v.slideS) * sm;
+        }
         float pressTgt = cs.pressure > v.polyAT ? cs.pressure : v.polyAT;
         if (ne.expr > pressTgt) pressTgt = ne.expr;
         const float smP = snap ? 1.f : 1.f - std::exp(-(float)n / (0.015f * fs));
-        v.pressS += (pressTgt - v.pressS) * smP;
+        if (pressMode == 2) v.pressS += (0.f - v.pressS) * smP;                      // Off: plays like a keyboard without pressure
+        else if (frozen) {}                                                          // released: keeps its pressure
+        else if (pressMode == 1 && pressTgt < v.pressS && !snap)                     // Hold: pressure falls slowly, so lifting a
+            v.pressS += (pressTgt - v.pressS) * (1.f - std::exp(-(float)n / (0.6f * fs)));   // key (pressure -> 0 before note-off) keeps the note
+        else v.pressS += (pressTgt - v.pressS) * smP;
 
         // LFOs
         const double bps = hostBpm / 60.0;
