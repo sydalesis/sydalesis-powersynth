@@ -279248,7 +279248,7 @@ static const PresetState kSL1204[] = {
     { "macroNames", "Primes|Low Organ|Shimmer|Air" },
     { nullptr, nullptr } };
 static const PresetState kSL1205[] = {
-    { "scl", "! penta_5limit.scl\\n!\\n5-limit pentatonic\\n 5\\n!\\n 9/8\\n 5/4\\n 3/2\\n 5/3\\n 2/1\\n" },
+    { "scl", "! harrison_penta.scl\\n!\\nLou Harrison style 5-limit pentatonic\\n 5\\n!\\n 9/8\\n 5/4\\n 3/2\\n 5/3\\n 2/1\\n" },
     { "macroNames", "Mallet|Bells|Ring|Tone" },
     { nullptr, nullptr } };
 static const PresetState kSL1206[] = {
@@ -279443,7 +279443,7 @@ static const PresetState kSL1233[] = {
     { "macroNames", "Clarity|Evolution|Open|Undertow|Crossfade|Expanse|Wow" },
     { nullptr, nullptr } };
 static const PresetState kSL1234[] = {
-    { "scl", "! just12_5limit.scl\\n!\\n5-limit 12-tone just scale\\n 12\\n!\\n 16/15\\n 9/8\\n 6/5\\n 5/4\\n 4/3\\n 64/45\\n 3/2\\n 8/5\\n 5/3\\n 16/9\\n 15/8\\n 2/1\\n" },
+    { "scl", "! riley_albion.scl\\n!\\nTerry Riley, The Harp of New Albion (5-limit, after the published ratios)\\n 12\\n!\\n 16/15\\n 9/8\\n 6/5\\n 5/4\\n 4/3\\n 64/45\\n 3/2\\n 8/5\\n 5/3\\n 16/9\\n 15/8\\n 2/1\\n" },
     { "macroNames", "Hammer|Sympathy|Position|Tone" },
     { nullptr, nullptr } };
 static const PresetState kSL1235[] = {
@@ -319834,7 +319834,7 @@ static const FactoryPreset kFactoryPresets[] = {
     { "Bhupali Open Sky", "Just Intonation", "analog,indian,just,just-intonation,microtonal,mpe,pentatonic,physical,raga,tanpura", 49418u, 108u, kSL1173, 1 },
     { "Bohlen-Pierce Clarinet Choir", "Just Intonation", "additive,bohlen-pierce,clarinet,just,just-intonation,microtonal,mpe,tritave,xenharmonic", 50467u, 115u, kSL1174, 1 },
     { "Canyon Pythagoras", "Just Intonation", "canyon,granular,historical,just,microtonal,mpe,slow,soundscape,temperament,wavetable,wind", 52072u, 110u, kSL1175, 1 },
-    { "Alpha Drift", "Just Intonation", "additive,alpha,just,microtonal,mpe,non-octave,wavetable,xenharmonic", 50854u, 104u, kSL1176, 1 },
+    { "Carlos Alpha Drift", "Just Intonation", "additive,alpha,carlos,just,microtonal,mpe,non-octave,wavetable,xenharmonic", 50854u, 104u, kSL1176, 1 },
     { "Consonance of Ratios", "Just Intonation", "analog,harmonic,just,just-intonation,microtonal,mpe,mseg,slow,tuned,wavetable", 1035263u, 218u, kSL1177, 1 },
     { "Consonance of the Series", "Just Intonation", "additive,just,just-intonation,maqam,microtonal,mpe,mseg,physical,pure,quarter-tone,resonant,scenes,slow,tuned,wavetable", 1030150u, 231u, kSL1178, 1 },
     { "Pure Horizon", "Just Intonation", "additive,calm,horizon,just,just-intonation,microtonal,mpe,pad,slow,wavetable", 51302u, 114u, kSL1179, 1 },
@@ -319842,7 +319842,7 @@ static const FactoryPreset kFactoryPresets[] = {
     { "Dawn Tonality", "Just Intonation", "field-recording,freeze,granular,just,just-intonation,microtonal,mpe,mseg,resonant,resonator,sacred,slow,spectral,tuned", 1035972u, 237u, kSL1181, 1 },
     { "Desert Septimal Heat", "Just Intonation", "analog,desert,heat,just,just-intonation,microtonal,mpe,slow,wavetable", 51198u, 104u, kSL1182, 1 },
     { "Distant Overtones", "Just Intonation", "analog,just,just-intonation,microtonal,motion,mpe,mseg,pure,slow,tuned,wavetable", 1042784u, 236u, kSL1183, 1 },
-    { "Sine Wall", "Just Intonation", "analog,beating,drone,just,just-intonation,microtonal,minimal,mpe,sine,slow", 47922u, 101u, kSL1184, 1 },
+    { "Dream House Sine Wall", "Just Intonation", "analog,beating,drone,just,just-intonation,microtonal,minimal,mpe,sine,slow,young", 47922u, 101u, kSL1184, 1 },
     { "Dreamtime Just Reed", "Just Intonation", "didgeridoo,dreamtime,granular,just,just-intonation,microtonal,mpe,slow,tribal,wavetable", 51858u, 110u, kSL1185, 1 },
     { "Drifting Fifths", "Just Intonation", "analog,field-recording,granular,indian,just,just-intonation,microtonal,mpe,mseg,raga,resonant,resonator,slow,spectral-fx,tuned", 1033123u, 226u, kSL1186, 1 },
     { "Drifting Overtones", "Just Intonation", "analog,just,just-intonation,microtonal,mpe,mseg,physical,pure,resonant,scenes,spectral-fx,tuned", 1037796u, 237u, kSL1187, 1 },
@@ -319862,8 +319862,8 @@ static const FactoryPreset kFactoryPresets[] = {
     { "Harmonic Ladder Pluck", "Just Intonation", "additive,arpeggio-friendly,harmonic,just,just-intonation,ladder,microtonal,mpe,physical,pluck", 50582u, 92u, kSL1201, 1 },
     { "Harmonic Ratios", "Just Intonation", "analog,gamelan,just,just-intonation,microtonal,mpe,mseg,pure,scenes,spectral,tuned", 1033349u, 215u, kSL1202, 1 },
     { "Harmonic Spiral", "Just Intonation", "granular,harmonic,indian,just,just-intonation,microtonal,mpe,mseg,physical,raga,sacred,slow,tuned,wavetable", 1033564u, 242u, kSL1203, 1 },
-    { "Harmonic Throne", "Just Intonation", "additive,drone,harmonic,just,just-intonation,microtonal,mpe,slow", 47689u, 117u, kSL1204, 1 },
-    { "Pentatonic Bells", "Just Intonation", "gamelan,just,just-intonation,microtonal,mpe,pentatonic,physical,scala", 52598u, 84u, kSL1205, 1 },
+    { "Harmonic Throne", "Just Intonation", "additive,drone,harmonic,just,just-intonation,microtonal,mpe,slow,young", 47689u, 117u, kSL1204, 1 },
+    { "Harrison Pentatonic Bells", "Just Intonation", "gamelan,harrison,just,just-intonation,microtonal,mpe,pentatonic,physical,scala", 52598u, 84u, kSL1205, 1 },
     { "Hollow Diamond", "Just Intonation", "analog,field-recording,granular,harmonic,just,just-intonation,microtonal,mpe,mseg,resonant,slow,spectral-fx,tuned", 1030593u, 221u, kSL1206, 1 },
     { "Hollow Intervals", "Just Intonation", "harmonic,indian,just,just-intonation,microtonal,motion,mpe,mseg,physical,raga,resonator,slow,still,tuned,wavetable", 1034527u, 239u, kSL1207, 1 },
     { "Ice Cathedral Harmonics", "Just Intonation", "additive,cathedral,harmonic,ice,just,just-intonation,microtonal,mpe,slow,wavetable", 51416u, 114u, kSL1208, 1 },
@@ -319892,7 +319892,7 @@ static const FactoryPreset kFactoryPresets[] = {
     { "Monochord of the Series", "Just Intonation", "additive,harmonic,historical,just,just-intonation,microtonal,mpe,mseg,sacred,slow,temperament,tuned,wavetable", 1043247u, 222u, kSL1231, 1 },
     { "Natural Fifths", "Just Intonation", "analog,just,just-intonation,microtonal,mpe,mseg,sacred,spectral-fx,still,tuned,wavetable", 1036666u, 210u, kSL1232, 1 },
     { "Natural Intervals", "Just Intonation", "harmonic,just,just-intonation,microtonal,motion,mpe,mseg,pure,slow,tuned,wavetable", 1023725u, 209u, kSL1233, 1 },
-    { "Five-Limit Harp", "Just Intonation", "just,just-intonation,microtonal,mpe,physical,piano,scala", 52682u, 84u, kSL1234, 1 },
+    { "New Albion Harp", "Just Intonation", "just,just-intonation,microtonal,mpe,physical,piano,riley,scala", 52682u, 84u, kSL1234, 1 },
     { "Night Partials", "Just Intonation", "analog,cross-synthesis,harmonic,just,just-intonation,microtonal,mpe,mseg,resonant,resonator,scenes,slow,spectral,spectral-fx,tuned", 1026039u, 229u, kSL1235, 1 },
     { "Night Sky in Seven", "Just Intonation", "additive,just,just-intonation,microtonal,mpe,night,shimmer,slow,stars,wavetable", 51744u, 114u, kSL1236, 1 },
     { "Nineteen Tone Organum", "Just Intonation", "19-edo,additive,analog,just,microtonal,mpe,organ,xenharmonic", 50767u, 87u, kSL1237, 1 },
@@ -319903,8 +319903,8 @@ static const FactoryPreset kFactoryPresets[] = {
     { "Otonal Series", "Just Intonation", "additive,field-recording,granular,indian,just,just-intonation,microtonal,mpe,mseg,physical,pure,raga,resonant,scenes,slow,spectral-fx,tuned", 1035006u, 257u, kSL1242, 1 },
     { "Overtone Cathedral", "Just Intonation", "additive,analog,drone,harmonic,just,just-intonation,microtonal,mpe,sacred,slow,wavetable", 47806u, 116u, kSL1243, 1 },
     { "Overtones of Pure Fifths", "Just Intonation", "field-recording,granular,indian,just,just-intonation,microtonal,mpe,mseg,physical,raga,resonator,sacred,slow,tuned", 1044400u, 210u, kSL1244, 1 },
-    { "Just Viola", "Just Intonation", "bowed,just,just-intonation,microtonal,mono,mpe,physical,solo,viola", 50389u, 78u, kSL1245, 1 },
-    { "Chamber Bowls", "Just Intonation", "bowls,just,just-intonation,microtonal,mpe,physical", 50304u, 85u, kSL1246, 1 },
+    { "Partch Adapted Viola", "Just Intonation", "bowed,just,just-intonation,microtonal,mono,mpe,partch,physical,solo,viola", 50389u, 78u, kSL1245, 1 },
+    { "Partch Cloud Chamber Bowls", "Just Intonation", "bowls,just,just-intonation,microtonal,mpe,partch,physical", 50304u, 85u, kSL1246, 1 },
     { "Partials of Seven", "Just Intonation", "additive,gamelan,harmonic,just,just-intonation,microtonal,mpe,mseg,slow,spectral,still,tuned,wavetable", 1038486u, 245u, kSL1247, 1 },
     { "Partials of the Series", "Just Intonation", "additive,historical,just,just-intonation,microtonal,mpe,mseg,pure,resonator,slow,still,temperament,tuned,wavetable", 1026268u, 215u, kSL1248, 1 },
     { "Patient Overtones", "Just Intonation", "additive,analog,indian,just,just-intonation,microtonal,mpe,mseg,raga,resonator,slow,still,tuned,wavetable", 1027832u, 246u, kSL1249, 1 },
@@ -324308,7 +324308,7 @@ static const FactoryPreset kFactoryPresets[] = {
     { "Weathered Clavier", "Keys & Organs", "additive,analog,keys,mpe,mseg,physical,vintage", 1073121u, 201u, kSL5647, 1 },
     { "Weathered Organ", "Keys & Organs", "additive,analog,keys,mpe,mseg,sacred,vintage", 1074297u, 176u, kSL5648, 1 },
     { "Weathered Positive", "Keys & Organs", "additive,keys,mpe,mseg,physical,sacred,warm", 1076653u, 189u, kSL5649, 1 },
-    { "Just Piano Hall", "Keys & Organs", "just-intonation,keys,microtonal,mpe,physical,piano", 53641u, 85u, kSL5650, 1 },
+    { "Well-Tuned Piano Hall", "Keys & Organs", "just-intonation,keys,microtonal,mpe,physical,piano,young", 53641u, 85u, kSL5650, 1 },
     { "Bedrock of Stone", "Basses", "analog,bass,basses,dark,deep,mono,mpe,mseg,sydalesis", 1084487u, 181u, kSL5651, 1 },
     { "Bedrock of the Deep", "Basses", "analog,bass,basses,dark,mono,mpe,mseg,resonator,wavetable", 1080972u, 185u, kSL5652, 1 },
     { "Cobalt Keel", "Basses", "analog,bass,basses,mono,motion,mpe,mseg,pulse,spectral-fx,sydalesis", 1080419u, 181u, kSL5653, 1 },
