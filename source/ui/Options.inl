@@ -68,7 +68,7 @@
     } ticker;
     bool tickerOn = false;
     double lastTimerTick = -1.0;
-    DriftPacer* pacer = nullptr;      // 6.0.4: Windows high-resolution frame pacer (nullptr elsewhere)
+    DriftPacer* pacer = nullptr;      // 6.0.5: Windows high-resolution frame pacer (nullptr elsewhere)
     static void pacerTick(void* ctx) { static_cast<DriftfieldUI*>(ctx)->frameTick(true); }
     void startTicker() {
         if (tickerOn) { removeIdleCallback(&ticker); tickerOn = false; }
@@ -212,7 +212,7 @@
     Rect skinTile[kSkinCount], optRefreshBtn[kRefreshCount], optSmoothBtn[3], optPredictBtn[2], optTipsBtn[2], optLiveBtn[2], optGuardBtn[2], optThreadsBtn[4], optPressBtn[3], optTextBtn[3];
     // 4.2 render threads: per instance (saved with the session); the choice also becomes the default for new instances
     static constexpr int kThreadVals[4] = { 1, 2, 4, 99 };
-    int optThreads = 99;             // default for new instances (options file, "threads6"); 6.0.4: Auto
+    int optThreads = 99;             // default for new instances (options file, "threads6"); 6.0.5: Auto
     std::string instThreads;         // this instance's "threads" state ("" = the default)
     int threadsIndex() const {
         const std::string& v = instThreads;
@@ -348,7 +348,7 @@
         };
         {   // 6.0: version + links (the synth's page, the music)
             const float ly = y;
-            line("Version", "Sydalesis 6  ·  6.0.4  (formerly Driftfield)", cText);
+            line("Version", "Sydalesis 6  ·  6.0.5  (formerly Driftfield)", cText);
             itchRect = { c.x + 420, ly - 10, 150, 20 }; linkRect = { c.x + 600, ly - 10, 200, 20 };
             auto link = [&](const Rect& r, const char* t) {
                 const bool hot = hovered(r);

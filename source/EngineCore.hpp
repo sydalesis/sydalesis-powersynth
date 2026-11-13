@@ -1330,7 +1330,7 @@ private:
     }
 
     // ---- modulation --------------------------------------------------------------------------
-    // 6.0.4: the matrix slots are decoded once per process() call (parameters only change between calls);
+    // 6.0.5: the matrix slots are decoded once per process() call (parameters only change between calls);
     // every voice then walks the short list of live slots instead of decoding all 24 slots each control block
     struct LiveSlot { int sr, dst, curve, via; float amt; };
     LiveSlot liveSlots[kModSlots];
@@ -1389,7 +1389,7 @@ private:
     }
 
     // ---- control rate -----------------------------------------------------------------------
-    // 6.0.4: the per-block smoothing coefficients depend only on the block length and the rate: computed once,
+    // 6.0.5: the per-block smoothing coefficients depend only on the block length and the rate: computed once,
     // not five std::exp calls per voice per control block. ctlK(n)[i] = 1 - exp(-n / (kCtlT[i] * fs)).
     static constexpr int kCtlKs = 5;
     float ctlKTab[kBlock + 1][kCtlKs] = {};
@@ -2618,7 +2618,7 @@ private:
         postFm(ov, fm, L, R, M, n);
     }
 
-    // 6.0.4: W partials (W/8 groups of 8) advance together. One group alone is a serial chain per sample
+    // 6.0.5: W partials (W/8 groups of 8) advance together. One group alone is a serial chain per sample
     // (each rotation waits for the previous one), so the CPU sat idle; several independent groups fill it.
     template <int W>
     static inline void additiveGroups(OscVoice& ov, int g, int n, float (*accL)[8], float (*accR)[8], float (*accM)[8]) {
@@ -2791,7 +2791,7 @@ private:
         pmDelay(ov, fm, L, R, M, n);
         postFm(ov, fm, L, R, M, n);
     }
-    // 6.0.4: W modes (W/8 groups) run together, as in renderAdditive: independent resonators fill the CPU's pipeline
+    // 6.0.5: W modes (W/8 groups) run together, as in renderAdditive: independent resonators fill the CPU's pipeline
     template <int W>
     static inline void modeGroups(OscVoice& ov, int g, const float* ex, int n, float (*accL)[8], float (*accR)[8], float (*accM)[8]) {
         float y1[W], y2[W], a1[W], a2[W], b[W], pl[W], pr[W];
@@ -2813,7 +2813,7 @@ private:
             for (int k = 0; k < 8; ++k) { accL[t][k] += xl[k]; accR[t][k] += xr[k]; accM[t][k] += xm[k]; }
         }
         for (int k = 0; k < W; ++k) {
-            // 6.0.4 guard: a mode driven past any audible level (the bowed / blown feedback models can run away when
+            // 6.0.5 guard: a mode driven past any audible level (the bowed / blown feedback models can run away when
             // rounding tips them over the edge) or gone NaN restarts silent instead of taking the voice down with it
             const float m = std::fabs(y1[k]) + std::fabs(y2[k]);
             if (!(m < 1e4f)) { y1[k] = 0.f; y2[k] = 0.f; }

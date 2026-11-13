@@ -15,7 +15,7 @@
 // 6.0: open a web page in the default browser (Platform.cpp)
 void driftPlatformOpenUrl(const char* url);
 void driftPlatformTextFocus(uintptr_t nativeView, bool take);
-struct DriftPacer;   // 6.0.4: Windows editor frame pacer (Platform.cpp)
+struct DriftPacer;   // 6.0.5: Windows editor frame pacer (Platform.cpp)
 DriftPacer* driftPlatformPacerStart(uintptr_t nativeView, int intervalMs, void (*cb)(void*), void* ctx);
 void driftPlatformPacerInterval(DriftPacer* p, int intervalMs);
 void driftPlatformPacerStop(DriftPacer* p);

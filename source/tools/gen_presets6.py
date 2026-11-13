@@ -56,7 +56,7 @@ TX = {
     'wt': [],
 }
 
-# 6.0.4: no artist names as tags (removed from both banks; filtered here so a regenerated bank stays clean)
+# 6.0.5: no artist names as tags (removed from both banks; filtered here so a regenerated bank stays clean)
 ARTIST_TAGS = ('roach', 'corbacho', 'tangerine', 'vangelis', 'schulze', 'jarre', 'lynch', 'phaedra', 'oxygene')   # tuning names (carlos, harrison, partch, riley, young) stay
 
 # ------------------------------------------------------------------------------------------------ legacy bank
@@ -446,7 +446,7 @@ def compose6(rc, name, idx):
     p.misc(drift=_t(_u(r, 0.12, 0.45)), spread=_t(_u(r, 0.5, 0.9)))
     p.set('levelComp', 1).set('fmV6', 7)
     tags = set(rc.get('tags', ()))
-    # 6.0.4: no artist tags (roach / corbacho removed from the bank); recipes without styles add none
+    # 6.0.5: no artist tags (roach / corbacho removed from the bank); recipes without styles add none
     st = [x for x in rc.get('styles', []) if x not in ARTIST_TAGS]
     if st: tags.update(r.sample(st, min(len(st), _ch(r, [1, 1, 2]))))
     tags.update(r.sample(rc.get('moods', ['evolving']), min(2, len(rc.get('moods', ['evolving'])))))

@@ -1,11 +1,11 @@
-SYDALESIS 6  (6.0.4)
+SYDALESIS 6  (6.0.5)
 ====================
 Synth page: https://sydalesis.itch.io/  ·  Music: https://sydalesis.bandcamp.com
 
 The plug-in now shows up in hosts as "Sydalesis 6". It is the same plug-in (same ids), so
 sessions made with Sydalesis 5.x open it as before. The logo opens the synth's page (itch.io); SETUP links to it and to the music on Bandcamp.
 
-6.0.4  (performance)
+6.0.5  (performance, presets)
 - Render threads: Auto is now the default. 6.0.3 rendered every voice on the host's audio thread unless
   SETUP > Render threads was changed; new instances and sessions that never set it now spread the voices
   over several cores (Auto: 6 threads on CPUs with 16+ hardware threads, 4 on 8+, 2 on 4+). A session saved

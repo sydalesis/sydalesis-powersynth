@@ -1,7 +1,7 @@
-// 6.0.4 performance pass: every 6.0-bank preset (or a stride of them) with N held voices at its own quality
+// 6.0.5 performance pass: every 6.0-bank preset (or a stride of them) with N held voices at its own quality
 // (HQ by default in the bank), single thread. Reports % of one core per preset and writes the render so a
 // later build can be null-tested against it.
-// build (from source/test): g++ -std=gnu++17 -O3 -ffast-math -fno-finite-math-only -I.. perf604.cpp ../EngineGeneric.cpp ../EngineFactory.cpp ../Platform.cpp ../EngineAVX2.cpp -o perf604 -ldl -lpthread
+// build (from source/test): g++ -std=gnu++17 -O3 -ffast-math -fno-finite-math-only -I.. perf605.cpp ../EngineGeneric.cpp ../EngineFactory.cpp ../Platform.cpp ../EngineAVX2.cpp -o perf605 -ldl -lpthread
 //   (compile EngineAVX2.cpp with -mavx2 -mfma, as the Makefile does)
 // env: DF_STRIDE (1), DF_ONLY (substring), DF_VOICES (24), DF_SECS (1.0), DF_TSV (out), DF_DUMP (dir for renders), DF_CMP (dir to compare)
 #include "../Params.hpp"

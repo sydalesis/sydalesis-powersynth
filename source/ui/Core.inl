@@ -364,7 +364,7 @@
     }
 
     // destination index for a knob parameter (-1 if not a matrix target)
-    // 6.0.4: one table per oscillator-type combination (every knob asked this every frame, scanning every destination)
+    // 6.0.5: one table per oscillator-type combination (every knob asked this every frame, scanning every destination)
     mutable std::vector<int16_t> destOfTab;
     mutable int destOfTypes[3] = { -1, -1, -1 };
     int destOf(uint32_t p) const {

@@ -155,7 +155,7 @@ protected:
     const char* getMaker() const override       { return "Sydalesis"; }
     const char* getHomePage() const override    { return "https://sydalesis.itch.io/"; }   // 6.0: the synth's page
     const char* getLicense() const override     { return "Copyright Sydalesis"; }
-    uint32_t    getVersion() const override     { return d_version(6, 0, 4); }
+    uint32_t    getVersion() const override     { return d_version(6, 0, 5); }
 
     void initAudioPort(bool input, uint32_t index, AudioPort& port) override
     {
@@ -480,7 +480,7 @@ private:
     // 4.2 multicore: one pool shared by both layer engines (they render one after the other)
     std::unique_ptr<drift::WorkerPool> pool;
     std::string threadsSetting;               // this instance's choice ("" = the default below)
-    std::string threadsDefault = "auto";      // 6.0.4: new instances and older sessions render on several cores
+    std::string threadsDefault = "auto";      // 6.0.5: new instances and older sessions render on several cores
     void setThreads(const char* v)
     {
         threadsSetting = v != nullptr ? v : "";
@@ -543,7 +543,7 @@ private:
             {
                 if (k == "cpuGuard") shared->guardOn.store(v != 0 ? 1 : 0);
                 if (k == "pressMode") shared->pressMode.store(v < 0 ? 0 : (v > 2 ? 2 : v));
-                // 6.0.4: "threads6" (the old "threads" key was always written as 1 = off, so it is not read any more)
+                // 6.0.5: "threads6" (the old "threads" key was always written as 1 = off, so it is not read any more)
                 if (k == "threads6") threadsDefault = v <= 1 ? "1" : (v >= 99 ? "auto" : std::to_string(v));   // default for new instances
             }
         }
