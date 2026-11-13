@@ -74,7 +74,7 @@ def parse_legacy(path):
         allents += 1
         kind, bank = m.group(6), m.group(8)
         if kind == 'V' or (bank is not None and bank != '1'): continue
-        ents.append([m.group(1), m.group(2), m.group(3), int(m.group(4)), int(m.group(5)), (kind, int(m.group(7))), allents - 1])
+        ents.append([m.group(1), m.group(2), ','.join(t for t in m.group(3).split(',') if t not in ('roach', 'corbacho')), int(m.group(4)), int(m.group(5)), (kind, int(m.group(7))), allents - 1])
     a = src.index('static const uint8_t kPresetCpu[] = {'); b = src.index('};', a)
     cpuall = [int(x) for x in re.findall(r'\d+', src[a:b].split('{', 1)[1])]
     assert len(cpuall) == allents, (len(cpuall), allents)
@@ -135,7 +135,7 @@ RC6['Analog'] = rc6(dict(RC5['Pads'], cat='Analog', variant='an6',
     menuC=[('an', ['sine', 'hollow'], 3), ('wt', ['analog'], 1)],
     env=((0.02, 3), (1, 6), (0.6, 1.0), (1.5, 8)), fenv=((0.02, 2), (1, 5), (0.3, 0.7), (1.5, 8)), fenv_amt=(0.05, 0.3),
     cut=(500, 4000), ftone=[('warm', 5), ('open', 1)], tune=0.0, sub=0.4, noise=0.15, vib=(0.0, 0.006),
-    styles=['roach', 'vangelis', 'analog'], moods=['analog', 'warm', 'vintage', 'polyphonic', 'brass', 'strings', 'classic', 'nostalgic'], tags=('analog',)),
+    styles=['vangelis', 'analog'], moods=['analog', 'warm', 'vintage', 'polyphonic', 'brass', 'strings', 'classic', 'nostalgic'], tags=('analog',)),
     dcurve=(-0.4, 0.2), fm=0.15, fm_style='keys')
 
 
@@ -443,7 +443,9 @@ def compose6(rc, name, idx):
     p.misc(drift=_t(_u(r, 0.12, 0.45)), spread=_t(_u(r, 0.5, 0.9)))
     p.set('levelComp', 1).set('fmV6', 7)
     tags = set(rc.get('tags', ()))
-    tags.update(r.sample(rc.get('styles', ['roach', 'corbacho']), _ch(r, [1, 1, 2])))
+    # 6.0.4: no artist tags (roach / corbacho removed from the bank); recipes without styles add none
+    st = [x for x in rc.get('styles', []) if x not in ('roach', 'corbacho')]
+    if st: tags.update(r.sample(st, min(len(st), _ch(r, [1, 1, 2]))))
     tags.update(r.sample(rc.get('moods', ['evolving']), min(2, len(rc.get('moods', ['evolving'])))))
     for f, t in (('frozen', 'freeze'), ('field', 'field-recording'), ('tuned', 'just-intonation'), ('fm', 'fm'), ('custom2', 'drawn-spectrum')):
         if f in c.flags: tags.add(t)

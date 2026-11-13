@@ -21,6 +21,8 @@ sessions made with Sydalesis 5.x open it as before. The logo opens the synth's p
   20-35% on the heaviest presets (most on Spectral and Additive).
 - Fixed: a bowed / blown Physical voice could run away and go silent (NaN) when its feedback tipped over;
   the resonator now restarts silent instead.
+- Presets: the "roach" and "corbacho" tags are gone from every preset (both banks) and from the browser's tag
+  chips; "Corbacho Pure Horizon" (Legacy 5.x, Just Intonation) is now "Pure Horizon". Sounds are unchanged.
 - Editor (Windows): frames are paced by a high-resolution timer. The Windows editor timer could not go faster
   than 10 ms (100 Hz) and, unless the host had raised the system timer resolution, ticked in steps of 15.6 ms:
   "120 Hz" ran at about 64 frames per second and "60 Hz" at about 32. The refresh settings now deliver the

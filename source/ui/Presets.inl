@@ -428,7 +428,7 @@
         pbSearch = { b.x + 380, b.y + 12, 440, 28 };
         const bool searching = textTarget == ttSearch;
         beginPath(); roundedRect(pbSearch.x, pbSearch.y, pbSearch.w, pbSearch.h, 5); fillColor(cInset); fill(); strokeColor(searching ? cAccent : cPanelEdge); stroke();
-        labelS(pbSearch.x + 10, pbSearch.cy() + 1, searchText.empty() && !searching ? std::string("search name, category or tag (e.g. roach drone bowed)") : searchText + (searching ? "_" : ""), 11,
+        labelS(pbSearch.x + 10, pbSearch.cy() + 1, searchText.empty() && !searching ? std::string("search name, category or tag (e.g. dark drone bowed)") : searchText + (searching ? "_" : ""), 11,
                searchText.empty() && !searching ? cFaint : cText, ALIGN_LEFT | ALIGN_MIDDLE);
         // 6.0 bank switch
         pbBankBtn[0] = { b.x + 264, b.y + 12, 52, 28 }; pbBankBtn[1] = { b.x + 318, b.y + 12, 56, 28 };
@@ -443,7 +443,7 @@
         // 5.1.1: tag chips (AND filter) and ratings export
         {
             static const char* const chips[] = { "dark", "cosmic", "ritual", "drone", "choir", "bells", "field-recording", "just-intonation", "freeze",
-                                                 "sequencer", "roach", "corbacho", "sydalesis" };
+                                                 "sequencer", "sydalesis" };
             pbChipN = (int)(sizeof(chips) / sizeof(chips[0]));
             float x = b.x + 264;
             for (int i = 0; i < pbChipN; ++i) {
@@ -536,7 +536,7 @@
         if (pbExportBtn.contains(x, y)) { exportRatings(); return; }
         for (int i = 0; i < pbChipN; ++i) if (pbChipR[i].contains(x, y)) {
             static const char* const chips[] = { "dark", "cosmic", "ritual", "drone", "choir", "bells", "field-recording", "just-intonation", "freeze",
-                                                 "sequencer", "roach", "corbacho", "sydalesis" };
+                                                 "sequencer", "sydalesis" };
             auto it = std::find(pbChips.begin(), pbChips.end(), chips[i]);
             if (it != pbChips.end()) pbChips.erase(it); else pbChips.push_back(chips[i]);
             pbScroll = 0.f; return;
