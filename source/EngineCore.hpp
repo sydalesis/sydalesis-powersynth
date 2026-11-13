@@ -591,6 +591,8 @@ public:
                 std::memset(hbL, 0, sizeof(hbL)); std::memset(hbR, 0, sizeof(hbR)); hbPos = 0;
             }
         }
+        buildMatrix();
+        prepCtlK();
         // clock
         const double bpsmp = hostBpm / 60.0 / (double)fsOut;
         if (hostPlaying) {
@@ -1256,6 +1258,7 @@ private:
                 src[msVelocity] = vel; src[msKey] = (v.target - 60.f) / 48.f; src[msNoteRnd] = v.rnd; src[msAlternate] = v.alt;
                 src[msRndVoice] = fresh ? 0.f : v.rndV.v; src[msBend] = v.bendS + chans[0].bend; src[msSlide] = v.slideS;
                 float md[kModDstCount];
+                buildMatrix();      // note-ons can arrive before process() has decoded this call's parameters
                 evalMatrix(src, md);
                 for (int o = 0; o < 3; ++o) phMod[o] = md[mdAPhase + o];
             }
@@ -1327,17 +1330,29 @@ private:
     }
 
     // ---- modulation --------------------------------------------------------------------------
-    void evalMatrix(const float* src, float* md) const {
-        for (int i = 0; i < kModDstCount; ++i) md[i] = 0.f;
+    // 6.0.4: the matrix slots are decoded once per process() call (parameters only change between calls);
+    // every voice then walks the short list of live slots instead of decoding all 24 slots each control block
+    struct LiveSlot { int sr, dst, curve, via; float amt; };
+    LiveSlot liveSlots[kModSlots];
+    int liveSlotCount = 0;
+    void buildMatrix() {
+        int n = 0;
         for (int s = 0; s < kModSlots; ++s) {
             const int sr = iparam(modSrcParam(s), 0, kModSrcCount - 1);
             const int dst = iparam(modDstParam(s), 0, kModDstCount - 1);
             const float amt = p[modAmtParam(s)];
             if (sr == msNone || dst == mdNone || amt == 0.f) continue;
-            float x = applyCurve(iparam(modCurveParam(s), 0, 7), src[sr]);
-            const int via = iparam(modViaParam(s), 0, kModSrcCount - 1);
-            if (via != msNone) x *= src[via];
-            md[dst] += x * amt;
+            liveSlots[n++] = { sr, dst, iparam(modCurveParam(s), 0, 7), iparam(modViaParam(s), 0, kModSrcCount - 1), amt };
+        }
+        liveSlotCount = n;
+    }
+    void evalMatrix(const float* src, float* md) const {
+        for (int i = 0; i < kModDstCount; ++i) md[i] = 0.f;
+        for (int k = 0; k < liveSlotCount; ++k) {
+            const LiveSlot& ls = liveSlots[k];
+            float x = applyCurve(ls.curve, src[ls.sr]);
+            if (ls.via != msNone) x *= src[ls.via];
+            md[ls.dst] += x * ls.amt;
         }
     }
     void globalSources(float* src) const {
@@ -1374,12 +1389,27 @@ private:
     }
 
     // ---- control rate -----------------------------------------------------------------------
+    // 6.0.4: the per-block smoothing coefficients depend only on the block length and the rate: computed once,
+    // not five std::exp calls per voice per control block. ctlK(n)[i] = 1 - exp(-n / (kCtlT[i] * fs)).
+    static constexpr int kCtlKs = 5;
+    float ctlKTab[kBlock + 1][kCtlKs] = {};
+    float ctlKFs = 0.f;
+    // filled on the audio thread (process()) before any voice renders: the workers only read it
+    void prepCtlK() {
+        if (ctlKFs != fs) {
+            static const float kCtlT[kCtlKs] = { 0.004f, 0.015f, 0.6f, 0.003f, 0.9f };
+            for (int b = 0; b <= kBlock; ++b) for (int i = 0; i < kCtlKs; ++i) ctlKTab[b][i] = 1.f - std::exp(-(float)b / (kCtlT[i] * fs));
+            ctlKFs = fs;
+        }
+    }
+    const float* ctlK(int n) const { return ctlKTab[n < 0 ? 0 : (n > kBlock ? kBlock : n)]; }
     void updateControl(Voice& v, int blk, int n) {
         Rng& rng = v.vr;
+        const float* ck = ctlK(n);
         const ChannelState& cs = chans[v.ch];
         const bool snap = v.firstBlock;
         const float dtb = (float)n / fs;
-        const float sm = snap ? 1.f : 1.f - std::exp(-(float)n / (0.004f * fs));
+        const float sm = snap ? 1.f : ck[0];
         const NeKey& ne = neKeys[v.ch & 15][v.note & 127];
         // 6.0.2: a released note on an MPE member channel keeps the expression it had: the channel now belongs to
         // the next note, whose pressure / slide / bend used to bring the old note's release back
@@ -1390,11 +1420,11 @@ private:
         }
         float pressTgt = cs.pressure > v.polyAT ? cs.pressure : v.polyAT;
         if (ne.expr > pressTgt) pressTgt = ne.expr;
-        const float smP = snap ? 1.f : 1.f - std::exp(-(float)n / (0.015f * fs));
+        const float smP = snap ? 1.f : ck[1];
         if (pressMode == 2) v.pressS += (0.f - v.pressS) * smP;                      // Off: plays like a keyboard without pressure
         else if (frozen) {}                                                          // released: keeps its pressure
         else if (pressMode == 1 && pressTgt < v.pressS && !snap)                     // Hold: pressure falls slowly, so lifting a
-            v.pressS += (pressTgt - v.pressS) * (1.f - std::exp(-(float)n / (0.6f * fs)));   // key (pressure -> 0 before note-off) keeps the note
+            v.pressS += (pressTgt - v.pressS) * ck[2];   // key (pressure -> 0 before note-off) keeps the note
         else v.pressS += (pressTgt - v.pressS) * smP;
 
         // LFOs
@@ -1479,7 +1509,7 @@ private:
         // VST3 note expression: tuning + vibrato
         {
             const NeKey& ne = neKeys[v.ch & 15][v.note & 127];
-            v.neTuneS += (ne.tune - v.neTuneS) * (snapNe(v) ? 1.f : 1.f - std::exp(-(float)n / (0.003f * fs)));
+            v.neTuneS += (ne.tune - v.neTuneS) * (snapNe(v) ? 1.f : ck[3]);
             base += v.neTuneS;
             if (ne.vib > 0.0005f) {
                 v.neVibPh += p[pNeVibRate] * dtb; v.neVibPh -= std::floor(v.neVibPh);
@@ -1488,7 +1518,7 @@ private:
         }
 
         const float spread = p[pSpread];
-        const float dCoef = 1.f - std::exp(-(float)n / (0.9f * fs));
+        const float dCoef = ck[4];
         const float timbreAll = md[mdTimbreAll] + v.slideS * p[pSlideTimbre];
         const float detAll = md[mdDetuneAll] * 50.f;
         static const float panSign[3] = { 1.f, -1.f, 0.6f };
@@ -2588,26 +2618,37 @@ private:
         postFm(ov, fm, L, R, M, n);
     }
 
+    // 6.0.4: W partials (W/8 groups of 8) advance together. One group alone is a serial chain per sample
+    // (each rotation waits for the previous one), so the CPU sat idle; several independent groups fill it.
+    template <int W>
+    static inline void additiveGroups(OscVoice& ov, int g, int n, float (*accL)[8], float (*accR)[8], float (*accM)[8]) {
+        float sv[W], cv[W], av[W], rc[W], rs[W], da[W], pl[W], pr[W];
+        for (int k = 0; k < W; ++k) { sv[k] = ov.aS[g + k]; cv[k] = ov.aC[g + k]; av[k] = ov.aAmp[g + k]; rc[k] = ov.aRc[g + k]; rs[k] = ov.aRs[g + k]; da[k] = ov.aDa[g + k]; pl[k] = ov.aPl[g + k]; pr[k] = ov.aPr[g + k]; }
+        for (int t = 0; t < n; ++t) {
+            float xl[8] = {}, xr[8] = {}, xm[8] = {};
+            for (int j = 0; j < W; j += 8)
+                for (int k = 0; k < 8; ++k) {
+                    const int i = j + k;
+                    const float sn = sv[i] * rc[i] + cv[i] * rs[i];
+                    const float cn = cv[i] * rc[i] - sv[i] * rs[i];
+                    sv[i] = sn; cv[i] = cn;
+                    av[i] += da[i];
+                    const float x = sn * av[i];
+                    xl[k] += x * pl[i]; xr[k] += x * pr[i]; xm[k] += x;
+                }
+            for (int k = 0; k < 8; ++k) { accL[t][k] += xl[k]; accR[t][k] += xr[k]; accM[t][k] += xm[k]; }
+        }
+        for (int k = 0; k < W; ++k) { ov.aS[g + k] = sv[k]; ov.aC[g + k] = cv[k]; ov.aAmp[g + k] = av[k]; }
+    }
     void renderAdditive(OscVoice& ov, const float* fm, float* L, float* R, float* M, int n) {
         // 8 partials per vector lane group; per-sample accumulators keep the loops vectorisable
         const int cnt = (ov.aCount + 7) & ~7;
         float accL[kBlock][8], accR[kBlock][8], accM[kBlock][8];
         for (int t = 0; t < n; ++t) for (int k = 0; k < 8; ++k) { accL[t][k] = 0.f; accR[t][k] = 0.f; accM[t][k] = 0.f; }
-        for (int g = 0; g < cnt; g += 8) {
-            float sv[8], cv[8], av[8], rc[8], rs[8], da[8], pl[8], pr[8];
-            for (int k = 0; k < 8; ++k) { sv[k] = ov.aS[g + k]; cv[k] = ov.aC[g + k]; av[k] = ov.aAmp[g + k]; rc[k] = ov.aRc[g + k]; rs[k] = ov.aRs[g + k]; da[k] = ov.aDa[g + k]; pl[k] = ov.aPl[g + k]; pr[k] = ov.aPr[g + k]; }
-            for (int t = 0; t < n; ++t) {
-                for (int k = 0; k < 8; ++k) {
-                    const float sn = sv[k] * rc[k] + cv[k] * rs[k];
-                    const float cn = cv[k] * rc[k] - sv[k] * rs[k];
-                    sv[k] = sn; cv[k] = cn;
-                    av[k] += da[k];
-                    const float x = sn * av[k];
-                    accL[t][k] += x * pl[k]; accR[t][k] += x * pr[k]; accM[t][k] += x;
-                }
-            }
-            for (int k = 0; k < 8; ++k) { ov.aS[g + k] = sv[k]; ov.aC[g + k] = cv[k]; ov.aAmp[g + k] = av[k]; }
-        }
+        int g = 0;
+        for (; g + 32 <= cnt; g += 32) additiveGroups<32>(ov, g, n, accL, accR, accM);
+        if (g + 16 <= cnt) { additiveGroups<16>(ov, g, n, accL, accR, accM); g += 16; }
+        if (g + 8 <= cnt) { additiveGroups<8>(ov, g, n, accL, accR, accM); g += 8; }
         for (int t = 0; t < n; ++t) {
             float l = 0.f, r = 0.f, m = 0.f;
             for (int k = 0; k < 8; ++k) { l += accL[t][k]; r += accR[t][k]; m += accM[t][k]; }
@@ -2750,6 +2791,35 @@ private:
         pmDelay(ov, fm, L, R, M, n);
         postFm(ov, fm, L, R, M, n);
     }
+    // 6.0.4: W modes (W/8 groups) run together, as in renderAdditive: independent resonators fill the CPU's pipeline
+    template <int W>
+    static inline void modeGroups(OscVoice& ov, int g, const float* ex, int n, float (*accL)[8], float (*accR)[8], float (*accM)[8]) {
+        float y1[W], y2[W], a1[W], a2[W], b[W], pl[W], pr[W];
+        for (int k = 0; k < W; ++k) {
+            const bool live = g + k < ov.mCount;
+            y1[k] = ov.mY1[g + k]; y2[k] = ov.mY2[g + k]; a1[k] = live ? ov.mA1[g + k] : 0.f; a2[k] = live ? ov.mA2[g + k] : 0.f;
+            b[k] = live ? ov.mB[g + k] : 0.f; pl[k] = ov.mPl[g + k]; pr[k] = ov.mPr[g + k];
+        }
+        for (int t = 0; t < n; ++t) {
+            const float e = ex[t];
+            float xl[8] = {}, xr[8] = {}, xm[8] = {};
+            for (int j = 0; j < W; j += 8)
+                for (int k = 0; k < 8; ++k) {
+                    const int i = j + k;
+                    const float y = b[i] * e + a1[i] * y1[i] - a2[i] * y2[i];
+                    y2[i] = y1[i]; y1[i] = y;
+                    xl[k] += y * pl[i]; xr[k] += y * pr[i]; xm[k] += y;
+                }
+            for (int k = 0; k < 8; ++k) { accL[t][k] += xl[k]; accR[t][k] += xr[k]; accM[t][k] += xm[k]; }
+        }
+        for (int k = 0; k < W; ++k) {
+            // 6.0.4 guard: a mode driven past any audible level (the bowed / blown feedback models can run away when
+            // rounding tips them over the edge) or gone NaN restarts silent instead of taking the voice down with it
+            const float m = std::fabs(y1[k]) + std::fabs(y2[k]);
+            if (!(m < 1e4f)) { y1[k] = 0.f; y2[k] = 0.f; }
+            ov.mY1[g + k] = y1[k]; ov.mY2[g + k] = y2[k];
+        }
+    }
     void renderModes(OscVoice& ov, const float* exc, float* L, float* R, float* M, int n) {
         const int cnt = (ov.mCount + 7) & ~7;
         float accL[kBlock][8], accR[kBlock][8], accM[kBlock][8];
@@ -2757,29 +2827,17 @@ private:
         const float nl = ov.nonlin;
         float exc2[kBlock];
         const float* ex = exc;
-        for (int g = 0; g < cnt; g += 8) {
-            if (g == 8 && nl > 0.f) {
-                // 4.2 nonlinearity: the upper modes are also driven by the square of the lowest eight
-                // (energy cascades upward, the gong / tam-tam bloom)
-                for (int t = 0; t < n; ++t) { float ls = 0.f; for (int k = 0; k < 8; ++k) ls += accM[t][k]; exc2[t] = exc[t] + nl * kBloom * satTanh(ls * ls * 3.f); }
-                ex = exc2;
-            }
-            float y1[8], y2[8], a1[8], a2[8], b[8], pl[8], pr[8];
-            for (int k = 0; k < 8; ++k) {
-                const bool live = g + k < ov.mCount;
-                y1[k] = ov.mY1[g + k]; y2[k] = ov.mY2[g + k]; a1[k] = live ? ov.mA1[g + k] : 0.f; a2[k] = live ? ov.mA2[g + k] : 0.f;
-                b[k] = live ? ov.mB[g + k] : 0.f; pl[k] = ov.mPl[g + k]; pr[k] = ov.mPr[g + k];
-            }
-            for (int t = 0; t < n; ++t) {
-                const float e = ex[t];
-                for (int k = 0; k < 8; ++k) {
-                    const float y = b[k] * e + a1[k] * y1[k] - a2[k] * y2[k];
-                    y2[k] = y1[k]; y1[k] = y;
-                    accL[t][k] += y * pl[k]; accR[t][k] += y * pr[k]; accM[t][k] += y;
-                }
-            }
-            for (int k = 0; k < 8; ++k) { ov.mY1[g + k] = y1[k]; ov.mY2[g + k] = y2[k]; }
+        int g = 0;
+        if (nl > 0.f && cnt > 8) {
+            modeGroups<8>(ov, 0, ex, n, accL, accR, accM);
+            // 4.2 nonlinearity: the upper modes are also driven by the square of the lowest eight
+            // (energy cascades upward, the gong / tam-tam bloom)
+            for (int t = 0; t < n; ++t) { float ls = 0.f; for (int k = 0; k < 8; ++k) ls += accM[t][k]; exc2[t] = exc[t] + nl * kBloom * satTanh(ls * ls * 3.f); }
+            ex = exc2; g = 8;
         }
+        for (; g + 32 <= cnt; g += 32) modeGroups<32>(ov, g, ex, n, accL, accR, accM);
+        if (g + 16 <= cnt) { modeGroups<16>(ov, g, ex, n, accL, accR, accM); g += 16; }
+        if (g + 8 <= cnt) { modeGroups<8>(ov, g, ex, n, accL, accR, accM); g += 8; }
         for (int t = 0; t < n; ++t) {
             float l = 0.f, r = 0.f, m = 0.f;
             for (int k = 0; k < 8; ++k) { l += accL[t][k]; r += accR[t][k]; m += accM[t][k]; }

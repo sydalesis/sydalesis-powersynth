@@ -44,7 +44,7 @@
             else if (k == "rollLen") rollLen = std::max(0, std::min(2, v));
             else if (k == "cpuGuard") optGuard = v != 0;
             else if (k == "pressMode") optPress = std::max(0, std::min(2, v));
-            else if (k == "threads") optThreads = v;
+            else if (k == "threads6") optThreads = v <= 1 ? 1 : (v >= 99 ? 99 : (v >= 4 ? 4 : 2));
             else if (k == "textSize") optTextSize = std::max(0, std::min(2, v));
             else if (k == "msegGridX") optMsegGridX = std::max(0, std::min(kMsegGridX - 1, v));
             else if (k == "msegGridY") optMsegGridY = std::max(0, std::min(kMsegGridY - 1, v));
@@ -57,7 +57,7 @@
         std::ofstream out(drift::lib::fromU8(optionsFile()));
         out << "refresh " << optRefresh << "\nsmooth " << optSmooth << "\npredict " << (optPredict ? 1 : 0)
             << "\ntooltips " << (optTips ? 1 : 0) << "\nlive " << (optLive ? 1 : 0) << "\nskin " << optSkin << "\nscopeMode " << scopeMode << "\nscopeGain " << scopeGain << "\nscopeTime " << scopeTime
-            << "\nscopeChan " << scopeChan << "\nscopeTilt " << scopeTilt << "\nrollLen " << rollLen << "\ncpuGuard " << (optGuard ? 1 : 0) << "\nthreads " << optThreads << "\ntextSize " << optTextSize
+            << "\nscopeChan " << scopeChan << "\nscopeTilt " << scopeTilt << "\nrollLen " << rollLen << "\ncpuGuard " << (optGuard ? 1 : 0) << "\nthreads6 " << optThreads << "\ntextSize " << optTextSize
             << "\nmsegGridX " << optMsegGridX << "\nmsegGridY " << optMsegGridY << "\npresetBank " << pbBank << "\npressMode " << optPress << "\n";
     }
 
@@ -68,12 +68,19 @@
     } ticker;
     bool tickerOn = false;
     double lastTimerTick = -1.0;
+    DriftPacer* pacer = nullptr;      // 6.0.4: Windows high-resolution frame pacer (nullptr elsewhere)
+    static void pacerTick(void* ctx) { static_cast<DriftfieldUI*>(ctx)->frameTick(true); }
     void startTicker() {
         if (tickerOn) { removeIdleCallback(&ticker); tickerOn = false; }
         ticker.ui = this;
-        tickerOn = addIdleCallback(&ticker, (uint)kRefreshMs[optRefresh]);
+        tickerOn = addIdleCallback(&ticker, (uint)kRefreshMs[optRefresh]);   // kept: drives frames where the pacer is unavailable
+        if (pacer) driftPlatformPacerInterval(pacer, kRefreshMs[optRefresh]);
+        else pacer = driftPlatformPacerStart(getWindow().getNativeWindowHandle(), kRefreshMs[optRefresh], &pacerTick, this);
     }
-    void stopTicker() { if (tickerOn) { removeIdleCallback(&ticker); tickerOn = false; } }
+    void stopTicker() {
+        if (pacer) { driftPlatformPacerStop(pacer); pacer = nullptr; }
+        if (tickerOn) { removeIdleCallback(&ticker); tickerOn = false; }
+    }
     static double secNow() {
         using namespace std::chrono;
         return duration<double>(steady_clock::now().time_since_epoch()).count();
@@ -205,11 +212,12 @@
     Rect skinTile[kSkinCount], optRefreshBtn[kRefreshCount], optSmoothBtn[3], optPredictBtn[2], optTipsBtn[2], optLiveBtn[2], optGuardBtn[2], optThreadsBtn[4], optPressBtn[3], optTextBtn[3];
     // 4.2 render threads: per instance (saved with the session); the choice also becomes the default for new instances
     static constexpr int kThreadVals[4] = { 1, 2, 4, 99 };
-    int optThreads = 1;              // default for new instances (options file)
-    std::string instThreads;         // this instance's "threads" state
+    int optThreads = 99;             // default for new instances (options file, "threads6"); 6.0.4: Auto
+    std::string instThreads;         // this instance's "threads" state ("" = the default)
     int threadsIndex() const {
         const std::string& v = instThreads;
-        if (v.empty() || v == "0" || v == "1") return 0;
+        if (v.empty()) { for (int i = 0; i < 4; ++i) if (kThreadVals[i] == optThreads) return i; return 3; }
+        if (v == "0" || v == "1") return 0;
         if (v[0] == 'a') return 3;
         return std::atoi(v.c_str()) >= 4 ? 2 : 1;
     }
@@ -340,7 +348,7 @@
         };
         {   // 6.0: version + links (the synth's page, the music)
             const float ly = y;
-            line("Version", "Sydalesis 6  ·  6.0.3  (formerly Driftfield)", cText);
+            line("Version", "Sydalesis 6  ·  6.0.4  (formerly Driftfield)", cText);
             itchRect = { c.x + 420, ly - 10, 150, 20 }; linkRect = { c.x + 600, ly - 10, 200, 20 };
             auto link = [&](const Rect& r, const char* t) {
                 const bool hot = hovered(r);
@@ -427,7 +435,7 @@
         for (int i = 0; i < 2; ++i) if (optTipsBtn[i].contains(mx, my)) { optTips = i == 1; tipShown = -1; saveOptions(); repaint(); return true; }
         for (int i = 0; i < 4; ++i) if (optThreadsBtn[i].contains(mx, my)) {
             optThreads = kThreadVals[i];
-            instThreads = i == 0 ? "" : (i == 3 ? "auto" : std::to_string(kThreadVals[i]));
+            instThreads = i == 0 ? "1" : (i == 3 ? "auto" : std::to_string(kThreadVals[i]));
             UI::setState("threads", instThreads.c_str());
             saveOptions(); repaint(); return true;
         }

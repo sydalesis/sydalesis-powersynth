@@ -364,10 +364,18 @@
     }
 
     // destination index for a knob parameter (-1 if not a matrix target)
+    // 6.0.4: one table per oscillator-type combination (every knob asked this every frame, scanning every destination)
+    mutable std::vector<int16_t> destOfTab;
+    mutable int destOfTypes[3] = { -1, -1, -1 };
     int destOf(uint32_t p) const {
         const int types[3] = { oscType(0), oscType(1), oscType(2) };
-        for (int d = 1; d < kModDstCount; ++d) { const drift::DestMap m = drift::destMap(d, types); if (m.param == (int)p) return d; }
-        return -1;
+        if (destOfTab.empty() || types[0] != destOfTypes[0] || types[1] != destOfTypes[1] || types[2] != destOfTypes[2]) {
+            destOfTab.assign(kParamCount, (int16_t)-1);
+            // first destination wins, as the old linear search did
+            for (int d = kModDstCount - 1; d >= 1; --d) { const drift::DestMap m = drift::destMap(d, types); if (m.param >= 0 && m.param < (int)kParamCount) destOfTab[(size_t)m.param] = (int16_t)d; }
+            for (int i = 0; i < 3; ++i) destOfTypes[i] = types[i];
+        }
+        return p < kParamCount ? destOfTab[p] : -1;
     }
     // normalised knob offset for a modulation amount on destination d
     float modNormOffset(uint32_t p, int d, float amt) const {

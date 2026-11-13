@@ -84,11 +84,33 @@
     // shrinks the size (never below the designed size) until the text fits maxW
     // minFrac: smallest size as a share of the designed size (6.0: narrow boxes such as the mixer's RING / SUB
     // selectors may shrink further, so larger text sizes still fit inside them)
-    float fitSize(const char* s, float size, float maxW, float minFrac = 0.92f) {
-        if (s == nullptr || s[0] == '\0' || maxW <= 0.f) return size;
+    // 6.0.4: text widths are cached (string, pixel size, letter spacing, scale): every label used to be laid out
+    // twice per frame, once to measure it here and once to draw it
+    struct WidthKey {
+        std::string s; float px, sp, sc;
+        bool operator==(const WidthKey& o) const { return px == o.px && sp == o.sp && sc == o.sc && s == o.s; }
+    };
+    struct WidthKeyHash {
+        size_t operator()(const WidthKey& k) const {
+            uint32_t a, b, c; std::memcpy(&a, &k.px, 4); std::memcpy(&b, &k.sp, 4); std::memcpy(&c, &k.sc, 4);
+            return std::hash<std::string>()(k.s) ^ ((size_t)a * 0x9E3779B1u) ^ ((size_t)b << 7) ^ ((size_t)c << 13);
+        }
+    };
+    std::unordered_map<WidthKey, float, WidthKeyHash> widthCache;
+    float textWidth(const char* s, float size) {
+        float xf[6]; currentTransform(xf);
+        WidthKey k { s, textPx(size), curLetterSp, xf[3] };
+        const auto it = widthCache.find(k);
+        if (it != widthCache.end()) return it->second;
         uiFontSize(size);
         Rectangle<float> bb; textBounds(0, 0, s, nullptr, bb);
-        const float w = bb.getWidth();
+        if (widthCache.size() > 6000) widthCache.clear();
+        widthCache.emplace(std::move(k), bb.getWidth());
+        return bb.getWidth();
+    }
+    float fitSize(const char* s, float size, float maxW, float minFrac = 0.92f) {
+        if (s == nullptr || s[0] == '\0' || maxW <= 0.f) return size;
+        const float w = textWidth(s, size);
         if (w <= maxW) return size;
         float px = textPx(size) * maxW / w;
         const float minPx = std::min(textPx(size), size * minFrac);
@@ -339,7 +361,7 @@
         else std::snprintf(buf, sizeof(buf), "%d / %d voices", shared ? tel.activeCount : 0, ival(pPolyphony));
         label(mx, 40, buf, 8.5f, guard > 0 ? cWarn : cDim, ALIGN_LEFT | ALIGN_MIDDLE);
         if (shared && tel.bpm > 0.f) { std::snprintf(buf, sizeof(buf), "%.0f bpm%s", tel.bpm, tel.playing ? " ▶" : ""); label(mx + 100, 40, buf, 8.5f, tel.playing ? cAccent : cFaint, ALIGN_LEFT | ALIGN_MIDDLE); }
-        label(kW - 14, 21, "MPE · v6.0.3", 8.5f, cAccent, ALIGN_RIGHT | ALIGN_MIDDLE);
+        label(kW - 14, 21, "MPE · v6.0.4", 8.5f, cAccent, ALIGN_RIGHT | ALIGN_MIDDLE);
 
         const float cur = currentRelativeScale();
         static const char* const lbl[4] = { "75", "90", "100", "125" };

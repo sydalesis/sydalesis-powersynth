@@ -418,3 +418,32 @@ index 977cd7e..b9bd755 100644
    } else {
      unsigned style =
        (NSClosableWindowMask | NSTitledWindowMask | NSMiniaturizableWindowMask);
+diff --git a/dgl/src/nanovg/fontstash.h b/dgl/src/nanovg/fontstash.h
+index 37ecafc0..1dba925b 100644
+--- a/dgl/src/nanovg/fontstash.h
++++ b/dgl/src/nanovg/fontstash.h
+@@ -168,6 +168,10 @@ static void fons__tmpfree(void* ptr, void* up);
+ 
+ struct FONSttFontImpl {
+ 	stbtt_fontinfo font;
++	// Sydalesis 6.0.4: kerning cache. stbtt looks GPOS kerning up with a linear table search for every glyph pair
++	// of every string drawn or measured, every frame. Zero-filled with the font: key 0 = pair (0, 0), kern 0.
++	unsigned int kernKey[4096];
++	short kernVal[4096];
+ };
+ typedef struct FONSttFontImpl FONSttFontImpl;
+ 
+@@ -472,7 +476,12 @@ void fons__tt_renderGlyphBitmap(FONSttFontImpl *font, unsigned char *output, int
+ 
+ int fons__tt_getGlyphKernAdvance(FONSttFontImpl *font, int glyph1, int glyph2)
+ {
+-	return stbtt_GetGlyphKernAdvance(&font->font, glyph1, glyph2);
++	const unsigned int key = ((unsigned int)glyph1 << 16) | ((unsigned int)glyph2 & 0xFFFFu);
++	const unsigned int h = ((key * 2654435761u) >> 20) & 4095u;
++	if (font->kernKey[h] == key) return font->kernVal[h];
++	const int k = stbtt_GetGlyphKernAdvance(&font->font, glyph1, glyph2);
++	if (glyph1 >= 0 && glyph1 < 65536 && glyph2 >= 0 && glyph2 < 65536 && k >= -32768 && k <= 32767) { font->kernKey[h] = key; font->kernVal[h] = (short)k; }
++	return k;
+ }
+ 
+ #endif

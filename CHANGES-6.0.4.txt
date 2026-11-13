@@ -1,9 +1,32 @@
-SYDALESIS 6  (6.0.3)
+SYDALESIS 6  (6.0.4)
 ====================
 Synth page: https://sydalesis.itch.io/  ·  Music: https://sydalesis.bandcamp.com
 
 The plug-in now shows up in hosts as "Sydalesis 6". It is the same plug-in (same ids), so
 sessions made with Sydalesis 5.x open it as before. The logo opens the synth's page (itch.io); SETUP links to it and to the music on Bandcamp.
+
+6.0.4  (performance)
+- Render threads: Auto is now the default. 6.0.3 rendered every voice on the host's audio thread unless
+  SETUP > Render threads was changed; new instances and sessions that never set it now spread the voices
+  over several cores (Auto: 6 threads on CPUs with 16+ hardware threads, 4 on 8+, 2 on 4+). A session saved
+  with a thread count keeps it. Off is still there.
+- Faster voices, same sound (renders match 6.0.3 to rounding level; the bowed / blown Physical models are
+  feedback systems where rounding changes the fine detail, with levels within 0.2%):
+  - Additive: partials run in interleaved groups (the oscillator bank was waiting on itself every sample).
+  - Physical (modal models): same for the resonator banks.
+  - Spectral oscillator and Spectral FX: faster FFT (per-stage twiddle tables, vectorised butterflies).
+  - Modulation matrix decoded once per audio block instead of per voice; per-voice smoothing constants
+    computed once.
+  Measured on 125 presets of the 6.0 bank, 24 held voices at HQ on one core: 20% less CPU on average,
+  20-35% on the heaviest presets (most on Spectral and Additive).
+- Fixed: a bowed / blown Physical voice could run away and go silent (NaN) when its feedback tipped over;
+  the resonator now restarts silent instead.
+- Editor (Windows): frames are paced by a high-resolution timer. The Windows editor timer could not go faster
+  than 10 ms (100 Hz) and, unless the host had raised the system timer resolution, ticked in steps of 15.6 ms:
+  "120 Hz" ran at about 64 frames per second and "60 Hz" at about 32. The refresh settings now deliver the
+  rate they name (when the computer keeps up).
+- Editor: less work per frame (text widths and kerning cached, knob modulation lookups cached): about 13%
+  less drawing time on the MAIN page.
 
 6.0.3
 - MPE pressure (SETUP page, for every instance): On / Hold / Off.
