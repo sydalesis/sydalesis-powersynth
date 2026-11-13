@@ -426,7 +426,7 @@ index 37ecafc0..1dba925b 100644
  
  struct FONSttFontImpl {
  	stbtt_fontinfo font;
-+	// Sydalesis 6.0.5: kerning cache. stbtt looks GPOS kerning up with a linear table search for every glyph pair
++	// Sydalesis 6.0.4: kerning cache. stbtt looks GPOS kerning up with a linear table search for every glyph pair
 +	// of every string drawn or measured, every frame. Zero-filled with the font: key 0 = pair (0, 0), kern 0.
 +	unsigned int kernKey[4096];
 +	short kernVal[4096];

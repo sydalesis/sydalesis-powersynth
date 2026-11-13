@@ -6,7 +6,7 @@
 struct SpecFFT {
     int n = 0;
     std::vector<float> c, s;      // cos / sin of 2*pi*k/n, k < n/2
-    std::vector<float> twR, twI;  // 6.0.5: the same values laid out per stage (contiguous, so the butterflies vectorise)
+    std::vector<float> twR, twI;  // 6.0.4: the same values laid out per stage (contiguous, so the butterflies vectorise)
     std::vector<int> rev;
     void init(int N) {
         n = N;

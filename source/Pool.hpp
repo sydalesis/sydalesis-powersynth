@@ -137,7 +137,7 @@ private:
 static inline int poolThreadsFor(const char* v) {
     if (!v || !*v || (v[0] == '0' && !v[1])) return 1;
     if (v[0] == 'a') {
-        // 6.0.5: 6 on 16+ hardware threads (Core Ultra / Ryzen 9 class), 4 on 8+, 2 on 4+
+        // 6.0.4: 6 on 16+ hardware threads (Core Ultra / Ryzen 9 class), 4 on 8+, 2 on 4+
         const unsigned hc = std::thread::hardware_concurrency();
         int n = hc >= 16 ? 6 : (hc >= 8 ? 4 : (hc >= 4 ? 2 : 1));
         return n;

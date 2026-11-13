@@ -30,7 +30,7 @@ void driftPlatformTextFocus(uintptr_t nativeView, bool take)
 #endif
 }
 
-// 6.0.5: editor frame pacing on Windows. pugl drives the editor's frame timer with SetTimer, which Windows clamps
+// 6.0.4: editor frame pacing on Windows. pugl drives the editor's frame timer with SetTimer, which Windows clamps
 // to 10 ms and rounds to the system tick (15.6 ms unless the host raised the timer resolution), and WM_TIMER only
 // arrives when the message queue is otherwise empty: the 120 Hz setting ran at 64 Hz or less, 60 Hz at ~32 Hz.
 // The pacer is a thread on a high-resolution waitable timer that posts one private message per frame to the editor

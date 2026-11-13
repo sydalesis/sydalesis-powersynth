@@ -15,7 +15,7 @@ $(BUILD_DIR)/EngineAVX2.cpp.o: BUILD_CXX_FLAGS += -Xarch_x86_64 -mavx2 -Xarch_x8
 else ifneq (,$(filter x86_64 i686 i386 amd64,$(shell $(CXX) -dumpmachine | cut -d- -f1)))
 $(BUILD_DIR)/EngineAVX2.cpp.o: BUILD_CXX_FLAGS += -mavx2 -mfma
 endif
-# 6.0.5: editor frame pacer (Platform.cpp) subclasses the editor window
+# 6.0.4: editor frame pacer (Platform.cpp) subclasses the editor window
 ifeq ($(WINDOWS),true)
 EXTRA_UI_LIBS += -lcomctl32
 endif

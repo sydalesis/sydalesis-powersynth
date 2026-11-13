@@ -84,7 +84,7 @@
     // shrinks the size (never below the designed size) until the text fits maxW
     // minFrac: smallest size as a share of the designed size (6.0: narrow boxes such as the mixer's RING / SUB
     // selectors may shrink further, so larger text sizes still fit inside them)
-    // 6.0.5: text widths are cached (string, pixel size, letter spacing, scale): every label used to be laid out
+    // 6.0.4: text widths are cached (string, pixel size, letter spacing, scale): every label used to be laid out
     // twice per frame, once to measure it here and once to draw it
     struct WidthKey {
         std::string s; float px, sp, sc;
