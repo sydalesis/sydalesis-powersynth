@@ -57,7 +57,7 @@ TX = {
 }
 
 # 6.0.4: no artist names as tags (removed from both banks; filtered here so a regenerated bank stays clean)
-ARTIST_TAGS = ('roach', 'corbacho', 'tangerine', 'vangelis', 'schulze', 'jarre')
+ARTIST_TAGS = ('roach', 'corbacho', 'tangerine', 'vangelis', 'schulze', 'jarre', 'carlos', 'harrison', 'lynch', 'partch', 'riley', 'young', 'phaedra', 'oxygene')
 
 # ------------------------------------------------------------------------------------------------ legacy bank
 CSTR = r'"((?:[^"\\]|\\.)*)"'
